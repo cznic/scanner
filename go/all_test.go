@@ -38,11 +38,11 @@ func testTokens(t *testing.T, yacc bool, table []row) {
 		s := New([]byte(test.src))
 		tok, lit := s.Scan()
 		if g, e := tok, test.tok; g != e {
-			t.Fatal(i, g, e)
+			t.Error(i, g, e)
 		}
 
 		if g, e := lit, test.lit; g != e {
-			t.Fatal(i, g, e)
+			t.Errorf("%d: %T(%#v) %T(%#v)", i, g, g, e, e)
 		}
 	}
 }
@@ -72,6 +72,46 @@ func TestGoTokens(t *testing.T) {
 		{"`1`", token.STRING, "1"},
 		{"`12`", token.STRING, "12"},
 		{"'@'", token.CHAR, int32('@')},
+
+		{"a ", token.IDENT, "a"}, // 20
+		{"ab ", token.IDENT, "ab"},
+		{"1 ", token.INT, uint64(1)},
+		{"12 ", token.INT, uint64(12)},
+		{`"" `, token.STRING, ""},
+
+		{`"1" `, token.STRING, "1"}, // 25
+		{`"12" `, token.STRING, "12"},
+		{"`` ", token.STRING, ""},
+		{"`1` ", token.STRING, "1"},
+		{"`12` ", token.STRING, "12"},
+
+		{"'@' ", token.CHAR, int32('@')}, // 30
+		{" a", token.IDENT, "a"},
+		{" ab", token.IDENT, "ab"},
+		{" 1", token.INT, uint64(1)},
+		{" 12", token.INT, uint64(12)},
+
+		{` ""`, token.STRING, ""}, // 35
+		{` "1"`, token.STRING, "1"},
+		{` "12"`, token.STRING, "12"},
+		{" ``", token.STRING, ""},
+		{" `1`", token.STRING, "1"},
+
+		{" `12`", token.STRING, "12"}, // 40
+		{" '@'", token.CHAR, int32('@')},
+		{" a ", token.IDENT, "a"},
+		{" ab ", token.IDENT, "ab"},
+		{" 1 ", token.INT, uint64(1)},
+
+		{" 12 ", token.INT, uint64(12)}, // 45
+		{` "" `, token.STRING, ""},
+		{` "1" `, token.STRING, "1"},
+		{` "12" `, token.STRING, "12"},
+		{" `` ", token.STRING, ""},
+
+		{" `1` ", token.STRING, "1"}, // 50
+		{" `12` ", token.STRING, "12"},
+		{" '@' ", token.CHAR, int32('@')},
 	})
 }
 func test(t *testing.T, root string) {
