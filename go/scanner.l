@@ -243,7 +243,12 @@ var			return token.VAR, lval
 		}
 		s.next()
 	}
-	return token.IDENT, string(s.src[s.i0-1:s.i-1])
+	if s.i <  len(s.src) {
+		return token.IDENT, string(s.src[s.i0-1:s.i-1])
+	}
+	
+	return token.IDENT, string(s.src[s.i0-1:s.i])
+
 
 {non_ascii}
 	s.i = s.i0-1

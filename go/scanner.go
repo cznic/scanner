@@ -2436,7 +2436,11 @@ yyrule86: // [a-zA-Z_][a-zA-Z_0-9]*
 			}
 			s.next()
 		}
-		return token.IDENT, string(s.src[s.i0-1 : s.i-1])
+		if s.i < len(s.src) {
+			return token.IDENT, string(s.src[s.i0-1 : s.i-1])
+		}
+
+		return token.IDENT, string(s.src[s.i0-1 : s.i])
 	}
 yyrule87: // {non_ascii}
 	{

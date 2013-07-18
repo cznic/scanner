@@ -27,6 +27,43 @@ func dbg(s string, va ...interface{}) {
 
 var std = filepath.Join(runtime.GOROOT(), "/src")
 
+type row struct {
+	src string
+	tok token.Token
+	lit interface{}
+}
+
+func testTokens(t *testing.T, yacc bool, table []row) {
+	for i, test := range table {
+		s := New([]byte(test.src))
+		tok, lit := s.Scan()
+		if g, e := tok, test.tok; g != e {
+			t.Fatal(i, g, e)
+		}
+
+		if g, e := lit, test.lit; g != e {
+			t.Fatal(i, g, e)
+		}
+	}
+}
+
+func TestGoTokens(t *testing.T) {
+	testTokens(t, false, []row{
+		{"@", token.ILLEGAL, "@"}, // 0
+		{"", token.EOF, nil},
+		{"//", token.COMMENT, "//"},
+		{"// ", token.COMMENT, "// "},
+		{"/**/ ", token.COMMENT, "/**/"},
+
+		{"/***/ ", token.COMMENT, "/***/"}, // 5
+		{"/** */ ", token.COMMENT, "/** */"},
+		{"/* **/ ", token.COMMENT, "/* **/"},
+		{"/* * */ ", token.COMMENT, "/* * */"},
+		//{"a", token.IDENT, "a"},
+
+		{"ab", token.IDENT, "ab"}, // 10
+	})
+}
 func test(t *testing.T, root string) {
 	var (
 		count    int
