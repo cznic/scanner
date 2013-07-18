@@ -59,9 +59,19 @@ func TestGoTokens(t *testing.T) {
 		{"/** */ ", token.COMMENT, "/** */"},
 		{"/* **/ ", token.COMMENT, "/* **/"},
 		{"/* * */ ", token.COMMENT, "/* * */"},
-		//{"a", token.IDENT, "a"},
+		{"a", token.IDENT, "a"},
 
 		{"ab", token.IDENT, "ab"}, // 10
+		{"1", token.INT, uint64(1)},
+		{"12", token.INT, uint64(12)},
+		{`""`, token.STRING, ""},
+		{`"1"`, token.STRING, "1"},
+
+		{`"12"`, token.STRING, "12"}, // 15
+		{"``", token.STRING, ""},
+		{"`1`", token.STRING, "1"},
+		{"`12`", token.STRING, "12"},
+		{"'@'", token.CHAR, int32('@')},
 	})
 }
 func test(t *testing.T, root string) {
