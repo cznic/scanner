@@ -389,5 +389,51 @@ func TestYaccTokens(t *testing.T) {
 		{"switch", IDENTIFIER, "switch"},
 		{"type", IDENTIFIER, "type"},
 		{"var", IDENTIFIER, "var"},
+
+		// ----
+
+		{"a.foo", IDENTIFIER, "a.foo"}, // 145
+		{"b.fooára", IDENTIFIER, "b.foo"},
+		{"ab.foo", IDENTIFIER, "ab.foo"},
+		{"a.foo ", IDENTIFIER, "a.foo"},
+		{"ab.foo ", IDENTIFIER, "ab.foo"},
+		{" a.foo", IDENTIFIER, "a.foo"},
+
+		{" ab.foo", IDENTIFIER, "ab.foo"}, // 150
+		{" a.foo ", IDENTIFIER, "a.foo"},
+		{" ab.foo ", IDENTIFIER, "ab.foo"},
+		{"f1234567890.foo", IDENTIFIER, "f1234567890.foo"},
+		{"b.fooár", IDENTIFIER, "b.foo"},
+
+		// --
+
+		{"a:", C_IDENTIFIER, "a"}, // 155
+		{"a: ", C_IDENTIFIER, "a"},
+		{"a :", C_IDENTIFIER, "a"},
+		{"a : ", C_IDENTIFIER, "a"},
+		{" a:", C_IDENTIFIER, "a"},
+
+		{" a: ", C_IDENTIFIER, "a"}, // 160
+		{" a :", C_IDENTIFIER, "a"},
+		{" a : ", C_IDENTIFIER, "a"},
+		{"ab:", C_IDENTIFIER, "ab"},
+		{"ab: ", C_IDENTIFIER, "ab"},
+
+		{"ab :", C_IDENTIFIER, "ab"}, // 165
+		{"ab : ", C_IDENTIFIER, "ab"},
+		{" ab:", C_IDENTIFIER, "ab"},
+		{" ab: ", C_IDENTIFIER, "ab"},
+		{" ab :", C_IDENTIFIER, "ab"},
+
+		{" ab : ", C_IDENTIFIER, "ab"}, // 170
+		{"a.b:", C_IDENTIFIER, "a.b"},
+		{"a.b: ", C_IDENTIFIER, "a.b"},
+		{"a.b :", C_IDENTIFIER, "a.b"},
+		{"a.b : ", C_IDENTIFIER, "a.b"},
+
+		{" a.b:", C_IDENTIFIER, "a.b"}, // 175
+		{" a.b: ", C_IDENTIFIER, "a.b"},
+		{" a.b :", C_IDENTIFIER, "a.b"},
+		{" a.b : ", C_IDENTIFIER, "a.b"},
 	})
 }
