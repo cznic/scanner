@@ -303,91 +303,91 @@ func TestYaccTokens(t *testing.T) {
 		{"'@'", CHAR, int32(64)}, // 70
 		{`"foo"`, STRING, "foo"},
 		{"`foo`", STRING, "foo"},
-		//TODO{"+", ADD, nil},
-		//TODO{"-", SUB, nil},
+		{"+", ILLEGAL, "+"},
+		{"-", ILLEGAL, "-"},
 
-		//TODO{"*", MUL, nil}, // 75
-		//TODO{"/", QUO, nil},
-		//TODO{"%", REM, nil},
-		//TODO{"&", AND, nil},
-		//TODO{"|", OR, nil},
+		{"*", ILLEGAL, "*"}, // 75
+		{"/", ILLEGAL, "/"},
+		{"%", ILLEGAL, "%"},
+		{"&", ILLEGAL, "&"},
+		{"|", ILLEGAL, "|"},
 
-		//TODO{"^", XOR, nil}, // 80
-		//TODO{"<<", SHL, nil},
-		//TODO{">>", SHR, nil},
-		//TODO{"&^", AND_NOT, nil},
-		//TODO{"+=", ADD_ASSIGN, nil},
+		{"^", ILLEGAL, "^"}, // 80
+		{"<<", ILLEGAL, "<"},
+		{">>", ILLEGAL, ">"},
+		{"&^", ILLEGAL, "&"},
+		{"+=", ILLEGAL, "+"},
 
-		//TODO{"-=", SUB_ASSIGN, nil}, // 85
-		//TODO{"*=", MUL_ASSIGN, nil},
-		//TODO{"/=", QUO_ASSIGN, nil},
-		//TODO{"%=", REM_ASSIGN, nil},
-		//TODO{"&=", AND_ASSIGN, nil},
+		{"-=", ILLEGAL, "-"}, // 85
+		{"*=", ILLEGAL, "*"},
+		{"/=", ILLEGAL, "/"},
+		{"%=", ILLEGAL, "%"},
+		{"&=", ILLEGAL, "&"},
 
-		//TODO{"|=", OR_ASSIGN, nil}, // 90
-		//TODO{"^=", XOR_ASSIGN, nil},
-		//TODO{"<<=", SHL_ASSIGN, nil},
-		//TODO{">>=", SHR_ASSIGN, nil},
-		//TODO{"&^=", AND_NOT_ASSIGN, nil},
+		{"|=", ILLEGAL, "|"}, // 90
+		{"^=", ILLEGAL, "^"},
+		{"<<=", ILLEGAL, "<"},
+		{">>=", ILLEGAL, ">"},
+		{"&^=", ILLEGAL, "&"},
 
-		//TODO{"&&", LAND, nil}, // 95
-		//TODO{"||", LOR, nil},
-		//TODO{"<-", ARROW, nil},
-		//TODO{"++", INC, nil},
-		//TODO{"--", DEC, nil},
+		{"&&", ILLEGAL, "&"}, // 95
+		{"||", ILLEGAL, "|"},
+		{"<-", ILLEGAL, "<"},
+		{"++", ILLEGAL, "+"},
+		{"--", ILLEGAL, "-"},
 
-		//TODO{"==", EQL, nil}, // 100
-		//TODO{"<", LSS, nil},
-		//TODO{">", GTR, nil},
-		//TODO{"=", ASSIGN, nil},
-		//TODO{"!", NOT, nil},
+		{"==", ILLEGAL, "="}, // 100
+		{"<", ILLEGAL, "<"},
+		{">", ILLEGAL, ">"},
+		{"=", ILLEGAL, "="},
+		{"!", ILLEGAL, "!"},
 
-		//TODO{"!=", NEQ, nil}, // 105
-		//TODO{"<=", LEQ, nil},
-		//TODO{">=", GEQ, nil},
-		//TODO{":=", DEFINE, nil},
-		//TODO{"...", ELLIPSIS, nil},
+		{"!=", ILLEGAL, "!"}, // 105
+		{"<=", ILLEGAL, "<"},
+		{">=", ILLEGAL, ">"},
+		{":=", ILLEGAL, ":"},
+		{"...", ILLEGAL, "."},
 
-		//TODO{"(", LPAREN, nil}, // 110
-		//TODO{"[", LBRACK, nil},
-		//TODO{"{", LBRACE, nil},
-		//TODO{",", COMMA, nil},
-		//TODO{".", PERIOD, nil},
+		{"(", ILLEGAL, "("}, // 110
+		{"[", ILLEGAL, "["},
+		{"{", ILLEGAL, "{"},
+		{",", ILLEGAL, ","},
+		{".", ILLEGAL, "."},
 
-		//TODO{")", RPAREN, nil}, // 115
-		//TODO{"]", RBRACK, nil},
-		//TODO{"}", RBRACE, nil},
-		//TODO{";", SEMICOLON, nil},
-		//TODO{":", COLON, nil},
+		{")", ILLEGAL, ")"}, // 115
+		{"]", ILLEGAL, "]"},
+		{"}", ILLEGAL, "}"},
+		{";", ILLEGAL, ";"},
+		{":", ILLEGAL, ":"},
 
-		//TODO{"break", BREAK, nil}, // 120
-		//TODO{"case", CASE, nil},
-		//TODO{"chan", CHAN, nil},
-		//TODO{"const", CONST, nil},
-		//TODO{"continue", CONTINUE, nil},
+		{"break", IDENTIFIER, "break"}, // 120
+		{"case", IDENTIFIER, "case"},
+		{"chan", IDENTIFIER, "chan"},
+		{"const", IDENTIFIER, "const"},
+		{"continue", IDENTIFIER, "continue"},
 
-		//TODO{"default", DEFAULT, nil}, // 125
-		//TODO{"defer", DEFER, nil},
-		//TODO{"else", ELSE, nil},
-		//TODO{"fallthrough", FALLTHROUGH, nil},
-		//TODO{"for", FOR, nil},
+		{"default", IDENTIFIER, "default"}, // 125
+		{"defer", IDENTIFIER, "defer"},
+		{"else", IDENTIFIER, "else"},
+		{"fallthrough", IDENTIFIER, "fallthrough"},
+		{"for", IDENTIFIER, "for"},
 
-		//TODO{"func", FUNC, nil}, // 130
-		//TODO{"go", GO, nil},
-		//TODO{"goto", GOTO, nil},
-		//TODO{"if", IF, nil},
-		//TODO{"import", IMPORT, nil},
+		{"func", IDENTIFIER, "func"}, // 130
+		{"go", IDENTIFIER, "go"},
+		{"goto", IDENTIFIER, "goto"},
+		{"if", IDENTIFIER, "if"},
+		{"import", IDENTIFIER, "import"},
 
-		//TODO{"interface", INTERFACE, nil}, // 135
-		//TODO{"map", MAP, nil},
-		//TODO{"package", PACKAGE, nil},
-		//TODO{"range", RANGE, nil},
-		//TODO{"return", RETURN, nil},
+		{"interface", IDENTIFIER, "interface"}, // 135
+		{"map", IDENTIFIER, "map"},
+		{"package", IDENTIFIER, "package"},
+		{"range", IDENTIFIER, "range"},
+		{"return", IDENTIFIER, "return"},
 
-		//TODO{"select", SELECT, nil}, // 140
-		//TODO{"struct", STRUCT, nil},
-		//TODO{"switch", SWITCH, nil},
-		//TODO{"type", GO_TYPE, nil},
-		//TODO{"var", VAR, nil},
+		{"select", IDENTIFIER, "select"}, // 140
+		{"struct", IDENTIFIER, "struct"},
+		{"switch", IDENTIFIER, "switch"},
+		{"type", IDENTIFIER, "type"},
+		{"var", IDENTIFIER, "var"},
 	})
 }

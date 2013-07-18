@@ -273,6 +273,7 @@ var ts = map[Token]string{
 	UNION: "UNION",
 }
 
+// String implements fmt.Stringer
 func (i Token) String() string {
 	if s := ts[i]; s != "" {
 		return s
