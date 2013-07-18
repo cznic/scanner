@@ -112,6 +112,10 @@ func TestGoTokens(t *testing.T) {
 		{" `1` ", token.STRING, "1"}, // 50
 		{" `12` ", token.STRING, "12"},
 		{" '@' ", token.CHAR, int32('@')},
+		{"bá", token.IDENT, "bá"},
+		{"bár", token.IDENT, "bár"},
+
+		{"bára", token.IDENT, "bára"}, // 55
 	})
 }
 func test(t *testing.T, root string) {

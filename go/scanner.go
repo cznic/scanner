@@ -2434,7 +2434,9 @@ yyrule86: // [a-zA-Z_][a-zA-Z_0-9]*
 			s.NCol--
 			for rune := rune(1); rune >= 0; rune = s.getRune(true) {
 			}
+			tok, lval = token.IDENT, string(s.src[s.i0-1:s.i])
 			s.next()
+			return
 		}
 		return token.IDENT, string(s.val)
 	}
