@@ -25,7 +25,9 @@ func dbg(s string, va ...interface{}) {
 	fmt.Println()
 }
 
-func Test(t *testing.T) {
+var std = filepath.Join(runtime.GOROOT(), "/src")
+
+func test(t *testing.T, root string) {
 	var (
 		count    int
 		tokCount int
@@ -33,7 +35,7 @@ func Test(t *testing.T) {
 	)
 
 	if err := filepath.Walk(
-		runtime.GOROOT()+"/src",
+		root,
 		func(pth string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -88,7 +90,8 @@ func Test(t *testing.T) {
 						t.Fatal(l.Errors[0], p2, p)
 					}
 
-					t.Fatalf("%d.%d %s(%d) %s(%d) %s %s", count, i, g, int(g), e, int(e), p2, p)
+					t.Fatalf("%d.%d %s(%d) %s(%d) '%v' '%v' %s %s", count, i, g, int(g), e, int(e), lit2, lit, p2, p)
+
 				}
 
 				if g, e := p2, p; g != e {
@@ -140,6 +143,10 @@ func Test(t *testing.T) {
 					if g, e := lit2.(string), lit; g != e {
 						t.Fatalf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
 					}
+				case token.ILLEGAL:
+					if g, e := lit2.(string), lit; g != e {
+						t.Fatalf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
+					}
 				}
 
 				tokCount++
@@ -156,10 +163,18 @@ func Test(t *testing.T) {
 	t.Logf("%d .go files, %d bytes, %d tokens\n", count, size, tokCount)
 }
 
+func Test0(t *testing.T) {
+	test(t, std)
+}
+
+func Test1(t *testing.T) {
+	test(t, "testdata")
+}
+
 func TestBenchGoScanner(t *testing.T) {
 	t0 := time.Now()
 	if err := filepath.Walk(
-		runtime.GOROOT()+"/src",
+		std,
 		func(pth string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -212,7 +227,7 @@ func TestBenchGoScanner(t *testing.T) {
 func TestBenchScanner(t *testing.T) {
 	t0 := time.Now()
 	if err := filepath.Walk(
-		runtime.GOROOT()+"/src",
+		std,
 		func(pth string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

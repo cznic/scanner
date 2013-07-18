@@ -94,7 +94,7 @@ func (s *Scanner) Error(msg string) {
 // corresponding Go predeclared types are returned as string.
 // 
 // If the returned token is token.ILLEGAL, the literal string is the offending
-// character.
+// character or number/string/char literal.
 func (s *Scanner) Scan() (tok token.Token, lval interface{}) {
 	//defer func() { fmt.Printf("%s(%d) %v\n", tok, int(tok), lval) }()
 	const (
@@ -239,36 +239,39 @@ var			return token.VAR, lval
 	if c >= '\xC2' && c <= '\xF4' {
 		s.i--
 		s.NCol--
-		for rune := rune(1) ; rune != 0; rune = s.getRune() {
+		for rune := rune(1) ; rune >= 0; rune = s.getRune(true) {
 		}
+		s.next()
 	}
 	return token.IDENT, string(s.src[s.i0-1:s.i-1])
 
 {non_ascii}
 	s.i = s.i0-1
-	if rune := s.getRune(); !unicode.IsLetter(rune) {
+	if rune := s.getRune(false); rune < 0 {
 		s.err("expected unicode lettter, got %U", rune)
-		return token.ILLEGAL, lval
+		return token.ILLEGAL, string(-rune)
 	}
 
-	for rune := rune(1) ; rune != 0; rune = s.getRune() {
+	for rune := rune(1) ; rune >= 0; rune = s.getRune(true) {
 	}
 	s.next()
 	return token.IDENT, string(s.src[s.i0-1:s.i-1])
 
 %%
-	return token.ILLEGAL, c0
+	s.next()
+	return token.ILLEGAL, string(c0)
 }
 
-func (s *Scanner) getRune() rune {
-	if rune, size := utf8.DecodeRune(s.src[s.i:]); size != 0 && 
-		(rune == '_' || unicode.IsLetter(rune) || unicode.IsDigit(rune)) {
-		s.i += size
-		s.NCol += size
-		return rune
+func (s *Scanner) getRune(acceptDigits bool) (r rune) {
+	var sz int
+	if r, sz = utf8.DecodeRune(s.src[s.i:]); sz != 0 && 
+		(r == '_' || unicode.IsLetter(r) || (acceptDigits && unicode.IsDigit(r))) {
+		s.i += sz
+		s.NCol += sz
+		return
 	}
 
-	return 0
+	return -r
 }
 
 func (s *Scanner) str(pref string) (tok token.Token, lval interface{}) {
@@ -277,7 +280,7 @@ func (s *Scanner) str(pref string) (tok token.Token, lval interface{}) {
 	ss, err := strconv.Unquote(ss)
 	if err != nil {
 		s.err("string literal %q: %v", ss, err)
-		return token.ILLEGAL, lval
+		return token.ILLEGAL, ss
 	}
 
 	s.i0--
