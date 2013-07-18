@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+//TODO test comparative errorlist generation
+
 func dbg(s string, va ...interface{}) {
 	_, fn, fl, _ := runtime.Caller(1)
 	fmt.Printf("%s:%d: ", path.Base(fn), fl)
@@ -25,7 +27,13 @@ func dbg(s string, va ...interface{}) {
 	fmt.Println()
 }
 
-var std = filepath.Join(runtime.GOROOT(), "/src")
+var (
+	std       = filepath.Join(runtime.GOROOT(), "src")
+	tests     = filepath.Join(runtime.GOROOT(), "test")
+	whitelist = []string{
+		"fixedbugs/bug169.go", // go/scanner doesn't return the last \n
+	}
+)
 
 type row struct {
 	src string
@@ -118,6 +126,7 @@ func TestGoTokens(t *testing.T) {
 		{"bára", token.IDENT, "bára"}, // 55
 	})
 }
+
 func test(t *testing.T, root string) {
 	var (
 		count    int
@@ -145,6 +154,13 @@ func test(t *testing.T, root string) {
 				return nil
 			}
 
+			q := pth[len(root)+1:]
+			for _, v := range whitelist {
+				if q == v {
+					return nil
+				}
+			}
+
 			file, err := os.Open(pth)
 			if err != nil {
 				t.Fatal(err)
@@ -165,6 +181,7 @@ func test(t *testing.T, root string) {
 			l := New(src)
 
 			i := 1
+			//dbg("pth %q", pth)
 		loop:
 			for {
 				pos, tok, lit := sc.Scan()
@@ -177,12 +194,15 @@ func test(t *testing.T, root string) {
 				p, p2 := fs.Position(pos), fs.Position(pos2)
 
 				if g, e := tok2, tok; g != e {
+					t.Errorf(
+						"%d.%d got tok %s(%d), exp tok %s(%d) got lit '%v', exp lit '%v' %s %s",
+						count, i, g, int(g), e, int(e), lit2, lit, p2, p,
+					)
+
 					if tok2 == token.ILLEGAL && len(l.Errors) != 0 {
 						t.Fatal(l.Errors[0], p2, p)
 					}
-
-					t.Fatalf("%d.%d %s(%d) %s(%d) '%v' '%v' %s %s", count, i, g, int(g), e, int(e), lit2, lit, p2, p)
-
+					return nil
 				}
 
 				if g, e := p2, p; g != e {
@@ -197,8 +217,20 @@ func test(t *testing.T, root string) {
 					break loop
 				case token.CHAR:
 					s, _ := strconv.Unquote(lit)
-					if g, e := lit2.(int32), int32(s[0]); g != e {
-						t.Fatalf("%d.%d %s %v %v %s %s", count, i, tok, g, e, p2, p)
+					if s == "" {
+						s = lit
+					}
+					switch x := lit2.(type) {
+					case int32:
+						if g, e := x, int32(s[0]); g != e {
+							t.Fatalf("%d.%d %s %v %v %s %s", count, i, tok, g, e, p2, p)
+						}
+					case string:
+						if g, e := x, lit; g != e {
+							t.Errorf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
+						}
+					default:
+						t.Fatalf("%d: %T(%#v)", i, lit2, lit2)
 					}
 				case token.INT:
 					n, _ := strconv.ParseUint(lit, 0, 64)
@@ -211,6 +243,8 @@ func test(t *testing.T, root string) {
 						if g, e := x, lit; g != e {
 							t.Fatalf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
 						}
+					default:
+						t.Fatalf("%d: %T(%#v)", i, lit2, lit2)
 					}
 				case token.IMAG:
 					n, _ := strconv.ParseFloat(lit[:len(lit)-1], 64)
@@ -223,16 +257,30 @@ func test(t *testing.T, root string) {
 						if g, e := x, lit; g != e {
 							t.Fatalf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
 						}
+					default:
+						t.Fatalf("%d: %T(%#v)", i, lit2, lit2)
 					}
 				case token.FLOAT:
 					n, _ := strconv.ParseFloat(lit, 64)
-					if g, e := lit2.(float64), n; g != e {
-						t.Fatalf("%d.%d %s %v %v %s %s", count, i, tok, g, e, p2, p)
+					switch x := lit2.(type) {
+					case float64:
+						if g, e := x, n; g != e {
+							t.Fatalf("%d.%d %s %v %v %s %s", count, i, tok, g, e, p2, p)
+						}
+					case string:
+						if g, e := x, lit; g != e {
+							t.Fatalf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
+						}
+					default:
+						t.Fatalf("%d: %T(%#v)", i, lit2, lit2)
 					}
 				case token.STRING:
-					lit, _ = strconv.Unquote(lit)
-					if g, e := lit2.(string), lit; g != e {
-						t.Fatalf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
+					nlit, err := strconv.Unquote(lit)
+					if err != nil {
+						nlit = lit
+					}
+					if g, e := lit2.(string), nlit; g != e {
+						t.Fatalf("%d.%d %s %q %q %s %s // %q", count, i, tok, g, e, p2, p, lit)
 					}
 				case token.ILLEGAL:
 					if g, e := lit2.(string), lit; g != e {
@@ -254,12 +302,16 @@ func test(t *testing.T, root string) {
 	t.Logf("%d .go files, %d bytes, %d tokens\n", count, size, tokCount)
 }
 
-func Test0(t *testing.T) {
+func TestStdlib(t *testing.T) {
 	test(t, std)
 }
 
-func Test1(t *testing.T) {
+func TestTestData(t *testing.T) {
 	test(t, "testdata")
+}
+
+func TestTests(t *testing.T) {
+	test(t, tests)
 }
 
 func TestBenchGoScanner(t *testing.T) {

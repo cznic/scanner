@@ -226,11 +226,20 @@ var			return token.VAR, lval
 \"			s.sc = S1
 `			s.sc = S2
 
+''			return token.CHAR, string(s.val)
+'(\\.)?[^']*		return token.CHAR, string(s.val)
+
 '(\\.)?[^']*'		if tok, lval = s.str(""); tok != token.STRING {
+				tok = token.CHAR
 				return
 			}
 			s.i0++
-			return token.CHAR, int32(lval.(string)[0])
+			ss := lval.(string)
+			if ss != "" {
+				return token.CHAR, int32(ss[0])
+			}
+
+			return token.CHAR, string(s.val)
 
 <S1>(\\.|[^\\"])*\"	return s.str("\"")
 <S2>([^`]|\n)*`		return s.str("`")
@@ -250,6 +259,9 @@ var			return token.VAR, lval
 {non_ascii}
 	s.i = s.i0-1
 	if rune := s.getRune(false); rune < 0 {
+		_, sz := utf8.DecodeRune(s.src[s.i:])
+		s.i += sz
+		s.next()
 		s.err("expected unicode lettter, got %U", rune)
 		return token.ILLEGAL, string(-rune)
 	}
@@ -278,11 +290,12 @@ func (s *Scanner) getRune(acceptDigits bool) (r rune) {
 
 func (s *Scanner) str(pref string) (tok token.Token, lval interface{}) {
 	s.sc = 0
-	ss := pref + string(s.val)
-	ss, err := strconv.Unquote(ss)
+	ss0 := pref + string(s.val)
+	ss, err := strconv.Unquote(ss0)
 	if err != nil {
 		s.err("string literal %q: %v", ss, err)
-		return token.ILLEGAL, ss
+		s.i0--
+		return token.STRING, ss0
 	}
 
 	s.i0--
