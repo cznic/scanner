@@ -19,6 +19,7 @@
 package scanner
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"unicode"
@@ -141,8 +142,7 @@ const (
 	GO_TYPE
 	VAR
 
-	// --------------------------------------------------- yacc mode tokens
-
+	// yacc mode tokens
 	C_IDENTIFIER // IDENTIFIER ':'
 	IDENTIFIER   // [a-zA-Z_][a-zA-Z0-9_.]*
 	LCURL        // %{
@@ -286,17 +286,18 @@ func (i Token) String() string {
 
 // A Scanner holds the scanner's internal state while processing a given text.
 type Scanner struct {
-	Col     int     // Starting column of the last scanned 
+	Col     int     // Starting column of the last scanned token.
 	Errors  []error // List of accumulated errors.
 	Fname   string  // File name (reported) of the scanned source.
 	Line    int     // Starting line of the last scanned 
-	NCol    int     // Starting column (reported) for the next scanned 
-	NLine   int     // Starting line (reported) for the next scanned 
+	NCol    int     // Starting column (reported) for the next scanned token.
+	NLine   int     // Starting line (reported) for the next scanned token.
 	c       int
 	i       int
 	i0      int
 	sc      int
 	src     []byte
+	ssc     int     // saved state condition
 	val     []byte
 }
 
@@ -333,7 +334,7 @@ func (s *Scanner) next() int {
 	return s.c
 }
 
-// Pos returns the starting offset of the last scanned 
+// Pos returns the starting offset of the last scanned token.
 func (s *Scanner) Pos() int {
 	return s.i0
 }
@@ -343,9 +344,9 @@ func (s *Scanner) err(format string, arg ...interface{}) {
 	s.Errors = append(s.Errors, err)
 }
 
-// Error appends s.Fname:s.Line:s.Col msg to s.Errors.
+// Error implements yyLexer.
 func (s *Scanner) Error(msg string) {
-	s.err(msg)
+	s.Errors = append(s.Errors, errors.New(msg))
 }
 
 // Mode allows to switch the scanner mode from scanning yacc tokens to scanning
@@ -367,9 +368,10 @@ func (s *Scanner) Scan() (tok Token, lval interface{}) {
 		return
 	}
 
-	i, nl, nc := s.i, s.NLine, s.NCol
-	if tok2, lit := s.ScanRaw(); tok2 != ILLEGAL || lit.(string) != ":" {
-		s.i, s.NLine, s.NCol = i, nl, nc
+	i, nl, nc, c := s.i, s.NLine, s.NCol, s.c
+	tok2, lit := s.ScanRaw()
+	if tok2 != ILLEGAL || lit.(string) != ":" {
+		s.i, s.NLine, s.NCol, s.c = i, nl, nc, c
 		return
 	}
 
@@ -536,13 +538,14 @@ union		{u}{n}{i}{o}{n}
 <INITIAL,_GO>{int_lit}	return s.int(INT)
 <_GO>{float_lit}	return s.float(FLOAT)
 
-<INITIAL,_GO>\"		s.sc = _S1
-<INITIAL,_GO>`		s.sc = _S2
+<INITIAL,_GO>\"		s.ssc, s.sc = s.sc, _S1
+<INITIAL,_GO>`		s.ssc, s.sc = s.sc, _S2
 
 <INITIAL,_GO>''			|
 <INITIAL,_GO>'(\\.)?[^']*	return CHAR, string(s.val)
 
 <INITIAL,_GO>'(\\.)?[^']*'	
+			s.ssc = s.sc
 			if tok, lval = s.str(""); tok != STRING {
 				return
 			}
@@ -612,7 +615,7 @@ func (s *Scanner) getRune(acceptDigits bool) (r rune) {
 }
 
 func (s *Scanner) str(pref string) (tok Token, lval interface{}) {
-	s.sc = _GO
+	s.sc = s.ssc
 	ss := pref + string(s.val)
 	ss, err := strconv.Unquote(ss)
 	if err != nil {

@@ -437,3 +437,29 @@ func TestYaccTokens(t *testing.T) {
 		{" a.b : ", C_IDENTIFIER, "a.b"},
 	})
 }
+
+func TestBug(t *testing.T) {
+	tab := []struct {
+		src  string
+		toks []Token
+	}{
+		{`%left`, []Token{LEFT}},
+		{`%left %left`, []Token{LEFT, LEFT}},
+		{`%left 'a' %left`, []Token{LEFT, CHAR, LEFT}},
+		{`foo`, []Token{IDENTIFIER}},
+		{`foo bar`, []Token{IDENTIFIER, IDENTIFIER}},
+		{`foo bar baz`, []Token{IDENTIFIER, IDENTIFIER, IDENTIFIER}},
+		{`%token <ival> DREG VREG`, []Token{TOKEN, ILLEGAL, IDENTIFIER, ILLEGAL, IDENTIFIER, IDENTIFIER}},
+	}
+
+	for i, test := range tab {
+		s := New([]byte(test.src))
+		s.Mode(true)
+		for j, etok := range test.toks {
+			tok, _ := s.Scan()
+			if g, e := tok, etok; g != e {
+				t.Errorf("%d.%d: %s(%d) %s(%d)", i, j, g, g, e, e)
+			}
+		}
+	}
+}
