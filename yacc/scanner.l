@@ -144,6 +144,7 @@ const (
 
 	// yacc mode tokens
 	C_IDENTIFIER // IDENTIFIER ':'
+	ERR_VERBOSE  // %error-verbose
 	IDENTIFIER   // [a-zA-Z_][a-zA-Z0-9_.]*
 	LCURL        // %{
 	LEFT         // %left
@@ -256,7 +257,7 @@ var ts = map[Token]string{
 	GO_TYPE: "GO_TYPE",
 	VAR:      "VAR",
 
-	// --------------------------------------------------- yacc mode tokens
+	// --------------------------------------------- yacc/bison mode tokens
 
 	C_IDENTIFIER: "C_IDENTIFIER",
 	IDENTIFIER:   "IDENTIFIER",
@@ -273,6 +274,7 @@ var ts = map[Token]string{
 	TOKEN: "TOKEN",
 	TYPE:  "TYPE",
 	UNION: "UNION",
+	ERR_VERBOSE: "ERR_VERBOSE",
 }
 
 // String implements fmt.Stringer
@@ -346,7 +348,12 @@ func (s *Scanner) err(format string, arg ...interface{}) {
 
 // Error implements yyLexer.
 func (s *Scanner) Error(msg string) {
-	s.Errors = append(s.Errors, errors.New(msg))
+	switch msg {
+	case "syntax error":
+		s.err(msg)
+	default:
+		s.Errors = append(s.Errors, errors.New(msg))
+	}
 }
 
 // Mode allows to switch the scanner mode from scanning yacc tokens to scanning
@@ -414,6 +421,7 @@ utf8_4          {utf8_h4}{utf8_cont}{utf8_cont}{utf8_cont}
 non_ascii       {utf8_2}|{utf8_3}|{utf8_4}
 
 a		[aA]
+b		[bB]
 c		[cC]
 e		[eE]
 f		[fF]
@@ -429,8 +437,10 @@ r		[rR]
 s		[sS]
 t		[tT]
 u		[uU]
+v		[vV]
 y		[yY]
 
+errorverbose	{e}{r}{r}{o}{r}-{v}{e}{r}{b}{o}{s}{e}
 left		{l}{e}{f}{t}
 nonassoc	{n}{o}{n}{a}{s}{s}{o}{c}
 prec		{p}{r}{e}{c}
@@ -555,15 +565,13 @@ union		{u}{n}{i}{o}{n}
 <_S1>(\\.|[^\\"])*\"	return s.str("\"")
 <_S2>([^`]|\n)*`	return s.str("`")
 
-<INITIAL>[a-zA-Z_][a-zA-Z0-9_.]*
-			return IDENTIFIER, string(s.val)
-
 "%{"			return LCURL, lval
-%{left}			return LEFT, lval
+"%}"			return RCURL, lval
 %%			return MARK, lval
+%{errorverbose}		return ERR_VERBOSE, lval
+%{left}			return LEFT, lval
 %{nonassoc}		return NONASSOC, lval
 %{prec}			return PREC, lval
-"%}"			return RCURL, lval
 %{right}		return RIGHT, lval
 %{start}		return START, lval
 %{token}		return TOKEN, lval
@@ -574,17 +582,31 @@ union		{u}{n}{i}{o}{n}
 	if c >= '\xC2' && c <= '\xF4' {
 		s.i--
 		s.NCol--
-		for rune := rune(1) ; rune >= 0; rune = s.getRune(true) {
+		for rune := rune(1) ; rune >= 0; rune = s.getRune(true, false) {
 		tok, lval = IDENT, string(s.src[s.i0-1:s.i])
 		}
 		s.next()
 		return
 	}
+
 	return IDENT, string(s.val)
+
+<INITIAL>[a-zA-Z_][a-zA-Z0-9_.]*
+	if c >= '\xC2' && c <= '\xF4' {
+		s.i--
+		s.NCol--
+		for rune := rune(1) ; rune >= 0; rune = s.getRune(true, true) {
+		tok, lval = IDENTIFIER, string(s.src[s.i0-1:s.i])
+		}
+		s.next()
+		return
+	}
+
+	return IDENTIFIER, string(s.val)
 
 <_GO>{non_ascii}
 	s.i = s.i0-1
-	if rune := s.getRune(false); rune < 0 {
+	if rune := s.getRune(false, false); rune < 0 {
 		_, sz := utf8.DecodeRune(s.src[s.i:])
 		s.i += sz
 		s.next()
@@ -592,20 +614,35 @@ union		{u}{n}{i}{o}{n}
 		return ILLEGAL, string(-rune)
 	}
 
-	for rune := rune(1) ; rune >= 0; rune = s.getRune(true) {
+	for rune := rune(1) ; rune >= 0; rune = s.getRune(true, false) {
 	}
 	s.next()
 	return IDENT, string(s.src[s.i0-1:s.i-1])
+
+<INITIAL>{non_ascii}
+	s.i = s.i0-1
+	if rune := s.getRune(false, false); rune < 0 {
+		_, sz := utf8.DecodeRune(s.src[s.i:])
+		s.i += sz
+		s.next()
+		s.err("expected unicode lettter, got %U", rune)
+		return ILLEGAL, string(-rune)
+	}
+
+	for rune := rune(1) ; rune >= 0; rune = s.getRune(true, true) {
+	}
+	s.next()
+	return IDENTIFIER, string(s.src[s.i0-1:s.i-1])
 
 %%
 	s.next()
 	return ILLEGAL, string(c0)
 }
 
-func (s *Scanner) getRune(acceptDigits bool) (r rune) {
+func (s *Scanner) getRune(acceptDigits, acceptDot bool) (r rune) {
 	var sz int
 	if r, sz = utf8.DecodeRune(s.src[s.i:]); sz != 0 && 
-		(r == '_' || unicode.IsLetter(r) || (acceptDigits && unicode.IsDigit(r))) {
+		(r == '_' || unicode.IsLetter(r) || (acceptDigits && unicode.IsDigit(r)) || (acceptDot && r == '.')) {
 		s.i += sz
 		s.NCol += sz
 		return

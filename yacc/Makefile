@@ -12,7 +12,7 @@ editor: scanner.go
 	go build
 
 scanner.go: scanner.l
-	golex -t $< | gofmt > $@
+	golex -o $@ $<
 
 todo:
 	@grep -n ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* *.go *.l || true

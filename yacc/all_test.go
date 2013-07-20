@@ -294,8 +294,8 @@ func TestYaccTokens(t *testing.T) {
 		{" '@' ", CHAR, int32('@')},
 		{"f1234567890", IDENTIFIER, "f1234567890"},
 
-		{"bár", IDENTIFIER, "b"}, // 65
-		{"bára", IDENTIFIER, "b"},
+		{"bár", IDENTIFIER, "bár"}, // 65
+		{"bára", IDENTIFIER, "bára"},
 		{"123", INT, uint64(123)},
 		{"4e6", INT, uint64(4)},
 		{"42i", INT, uint64(42)},
@@ -393,45 +393,46 @@ func TestYaccTokens(t *testing.T) {
 		// ----
 
 		{"a.foo", IDENTIFIER, "a.foo"}, // 145
-		{"b.fooára", IDENTIFIER, "b.foo"},
+		{"b.fooára", IDENTIFIER, "b.fooára"},
 		{"ab.foo", IDENTIFIER, "ab.foo"},
 		{"a.foo ", IDENTIFIER, "a.foo"},
 		{"ab.foo ", IDENTIFIER, "ab.foo"},
-		{" a.foo", IDENTIFIER, "a.foo"},
 
-		{" ab.foo", IDENTIFIER, "ab.foo"}, // 150
+		{" a.foo", IDENTIFIER, "a.foo"}, // 150
+		{" ab.foo", IDENTIFIER, "ab.foo"},
 		{" a.foo ", IDENTIFIER, "a.foo"},
 		{" ab.foo ", IDENTIFIER, "ab.foo"},
 		{"f1234567890.foo", IDENTIFIER, "f1234567890.foo"},
-		{"b.fooár", IDENTIFIER, "b.foo"},
+
+		{"b.fooár", IDENTIFIER, "b.fooár"}, // 155
 
 		// --
 
-		{"a:", C_IDENTIFIER, "a"}, // 155
+		{"a:", C_IDENTIFIER, "a"},
 		{"a: ", C_IDENTIFIER, "a"},
 		{"a :", C_IDENTIFIER, "a"},
 		{"a : ", C_IDENTIFIER, "a"},
-		{" a:", C_IDENTIFIER, "a"},
 
-		{" a: ", C_IDENTIFIER, "a"}, // 160
+		{" a:", C_IDENTIFIER, "a"}, // 160
+		{" a: ", C_IDENTIFIER, "a"},
 		{" a :", C_IDENTIFIER, "a"},
 		{" a : ", C_IDENTIFIER, "a"},
 		{"ab:", C_IDENTIFIER, "ab"},
-		{"ab: ", C_IDENTIFIER, "ab"},
 
-		{"ab :", C_IDENTIFIER, "ab"}, // 165
+		{"ab: ", C_IDENTIFIER, "ab"}, // 165
+		{"ab :", C_IDENTIFIER, "ab"},
 		{"ab : ", C_IDENTIFIER, "ab"},
 		{" ab:", C_IDENTIFIER, "ab"},
 		{" ab: ", C_IDENTIFIER, "ab"},
-		{" ab :", C_IDENTIFIER, "ab"},
 
-		{" ab : ", C_IDENTIFIER, "ab"}, // 170
+		{" ab :", C_IDENTIFIER, "ab"}, // 170
+		{" ab : ", C_IDENTIFIER, "ab"},
 		{"a.b:", C_IDENTIFIER, "a.b"},
 		{"a.b: ", C_IDENTIFIER, "a.b"},
 		{"a.b :", C_IDENTIFIER, "a.b"},
-		{"a.b : ", C_IDENTIFIER, "a.b"},
 
-		{" a.b:", C_IDENTIFIER, "a.b"}, // 175
+		{"a.b : ", C_IDENTIFIER, "a.b"}, // 175
+		{" a.b:", C_IDENTIFIER, "a.b"},
 		{" a.b: ", C_IDENTIFIER, "a.b"},
 		{" a.b :", C_IDENTIFIER, "a.b"},
 		{" a.b : ", C_IDENTIFIER, "a.b"},
