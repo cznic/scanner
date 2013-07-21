@@ -291,7 +291,7 @@ type Scanner struct {
 	Col     int     // Starting column of the last scanned token.
 	Errors  []error // List of accumulated errors.
 	Fname   string  // File name (reported) of the scanned source.
-	Line    int     // Starting line of the last scanned 
+	Line    int     // Starting line of the last scanned token.
 	NCol    int     // Starting column (reported) for the next scanned token.
 	NLine   int     // Starting line (reported) for the next scanned token.
 	c       int
