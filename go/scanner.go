@@ -21,18 +21,20 @@ import (
 
 // A Scanner holds the scanner's internal state while processing a given text.
 type Scanner struct {
-	Col    int     // Starting column of the last scanned token.
-	Errors []error // List of accumulated errors.
-	Fname  string  // File name (reported) of the scanned source.
-	Line   int     // Starting line of the last scanned token.
-	NCol   int     // Starting column (reported) for the next scanned token.
-	NLine  int     // Starting line (reported) for the next scanned token.
-	c      int
-	i      int
-	i0     int
-	sc     int
-	src    []byte
-	val    []byte
+	Col      int     // Starting column of the last scanned token.
+	Errors   []error // List of accumulated errors.
+	Fname    string  // File name (reported) of the scanned source.
+	Line     int     // Starting line of the last scanned token.
+	NCol     int     // Starting column (reported) for the next scanned token.
+	NLine    int     // Starting line (reported) for the next scanned token.
+	c        int
+	i        int
+	i0       int
+	sc       int
+	semi     bool
+	src      []byte
+	val      []byte
+	lcomment string
 }
 
 // New returns a newly created Scanner.
@@ -95,6 +97,82 @@ func (s *Scanner) Error(msg string) {
 // If the returned token is token.ILLEGAL, the literal string is the offending
 // character or number/string/char literal.
 func (s *Scanner) Scan() (tok token.Token, lval interface{}) {
+	for {
+		tok, lval = s.scan()
+		if tok != token.ILLEGAL || lval.(string) != "\n" {
+			return
+		}
+	}
+}
+
+// ScanSemis is like Scan but inserts semicolons as specified in [0].
+//
+//	[0]: http://golang.org/ref/spec#Semicolons
+func (s *Scanner) ScanSemis() (tok token.Token, lval interface{}) {
+	if s.lcomment != "" {
+		tok, lval, s.lcomment = token.COMMENT, s.lcomment, ""
+		return
+	}
+
+again:
+	tok, lval = s.scan()
+	switch tok {
+	case token.EOF:
+		if s.semi {
+			tok, lval = token.SEMICOLON, "\n"
+			s.semi = false
+		}
+	case token.ILLEGAL:
+		if lval.(string) != "\n" {
+			break
+		}
+
+		if !s.semi {
+			goto again
+		}
+
+		tok, lval = token.SEMICOLON, "\n"
+		s.semi = false
+	case token.BREAK, token.CHAR, token.CONTINUE, token.DEC,
+		token.FALLTHROUGH, token.FLOAT, token.IDENT, token.IMAG,
+		token.INC, token.INT, token.RBRACE, token.RBRACK, token.RETURN,
+		token.RPAREN, token.STRING:
+		s.semi = true
+	case token.COMMENT:
+		if !s.semi {
+			break
+		}
+
+		c := lval.(string)
+		if c[:2] == "//" {
+			s.lcomment = c
+			tok, lval = token.SEMICOLON, "\n"
+			s.semi = false
+			break
+		}
+
+		src := s.src[s.i0-1+len(c):]
+	search:
+		for i := range src {
+			switch src[i] {
+			case ' ', '\t':
+				//nop
+			case '\n':
+				s.lcomment = c
+				tok, lval = token.SEMICOLON, "\n"
+				s.semi = false
+				break search
+			default:
+				break search
+			}
+		}
+	default:
+		s.semi = false
+	}
+	return
+}
+
+func (s *Scanner) scan() (tok token.Token, lval interface{}) {
 	//defer func() { fmt.Printf("%s(%d) %v\n", tok, int(tok), lval) }()
 	const (
 		INITIAL = iota
@@ -167,7 +245,7 @@ yystart1:
 		goto yystate67
 	case c == '\'':
 		goto yystate14
-	case c == '\t' || c == '\n' || c == '\r' || c == ' ':
+	case c == '\t' || c == '\r' || c == ' ':
 		goto yystate3
 	case c == '\x00':
 		goto yystate2
@@ -230,7 +308,7 @@ yystate3:
 	switch {
 	default:
 		goto yyrule2
-	case c == '\t' || c == '\n' || c == '\r' || c == ' ':
+	case c == '\t' || c == '\r' || c == ' ':
 		goto yystate3
 	}
 
@@ -2093,7 +2171,7 @@ yyrule1: // \0
 		s.i0++
 		return token.EOF, lval
 	}
-yyrule2: // [ \t\n\r]+
+yyrule2: // [ \t\r]+
 
 	goto yystate0
 yyrule3: // \/\*([^*]|\*+[^*/])*\*+\/
