@@ -249,7 +249,7 @@ var ts = map[Token]string{
 	MAP:       "MAP",
 	PACKAGE:   "PACKAGE",
 	RANGE:     "RANGE",
-	RETURN: "  RETURN",
+	RETURN:    "RETURN",
 	
 	SELECT:  "SELECT",
 	STRUCT:  "STRUCT",
