@@ -82,6 +82,11 @@ func (s *Scanner) err(format string, arg ...interface{}) {
 
 // Error implements yyLexer.
 func (s *Scanner) Error(msg string) {
+	if msg == "syntax error" { // yacc
+		s.err(msg)
+		return
+	}
+
 	s.Errors = append(s.Errors, errors.New(msg))
 }
 
