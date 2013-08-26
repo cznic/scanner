@@ -13,6 +13,7 @@
 package scanner
 
 import (
+	"errors"
 	"fmt"
 	"go/token"
 	"strconv"
@@ -83,7 +84,7 @@ func (s *Scanner) err(format string, arg ...interface{}) {
 
 // Error implements yyLexer.
 func (s *Scanner) Error(msg string) {
-	s.err("%s", msg)
+	s.Errors = append(s.Errors, errors.New(msg))
 }
 
 // Scan scans the next token and returns the token and its value if applicable.
