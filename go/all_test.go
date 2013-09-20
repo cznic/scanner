@@ -31,7 +31,7 @@ var (
 	std       = filepath.Join(runtime.GOROOT(), "src")
 	tests     = filepath.Join(runtime.GOROOT(), "test")
 	whitelist = []string{
-		"fixedbugs/bug169.go", // go/scanner doesn't return the last \n
+		filepath.Join("fixedbugs", "bug169.go"), // go/scanner doesn't return the last \n
 	}
 )
 
@@ -227,7 +227,7 @@ func test(t *testing.T, root string) {
 						}
 					case string:
 						if g, e := x, lit; g != e {
-							t.Errorf("%d.%d %s %q %q %s %s", count, i, tok, g, e, p2, p)
+							t.Errorf("%d.%d %s g: %q e: %q %s %s", count, i, tok, g, e, p2, p)
 						}
 					default:
 						t.Fatalf("%d: %T(%#v)", i, lit2, lit2)
