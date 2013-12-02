@@ -142,6 +142,11 @@ const (
 	GO_TYPE
 	VAR
 
+	DLR_DLR      // $$
+	DLR_NUM      // $1
+	DLR_TAG_DLR  // $<tag>$
+	DLR_TAG_NUM  // $<tag>2 //TODO
+
 	// yacc mode tokens
 	C_IDENTIFIER // IDENTIFIER ':'
 	ERR_VERBOSE  // %error-verbose
@@ -255,7 +260,12 @@ var ts = map[Token]string{
 	STRUCT:  "STRUCT",
 	SWITCH:  "SWITCH",
 	GO_TYPE: "GO_TYPE",
-	VAR:      "VAR",
+	VAR:     "VAR",
+
+	DLR_DLR:     "DLR_DLR",
+	DLR_NUM:     "DLR_NUM",
+	DLR_TAG_DLR: "DLR_TAG_DLR",
+	DLR_TAG_NUM: "DLR_TAG_NUM",
 
 	// --------------------------------------------- yacc/bison mode tokens
 
@@ -270,10 +280,10 @@ var ts = map[Token]string{
 	RCURL:    "RCURL",
 	RIGHT:    "RIGHT",
 
-	START: "START",
-	TOKEN: "TOKEN",
-	TYPE:  "TYPE",
-	UNION: "UNION",
+	START:       "START",
+	TOKEN:       "TOKEN",
+	TYPE:        "TYPE",
+	UNION:       "UNION",
 	ERR_VERBOSE: "ERR_VERBOSE",
 }
 
@@ -283,7 +293,7 @@ func (i Token) String() string {
 		return s
 	}
 
-	return fmt.Sprintf("%T(%d)", i, i)
+	return fmt.Sprintf("Token(%d)", int(i))
 }
 
 // A Scanner holds the scanner's internal state while processing a given text.
@@ -369,20 +379,20 @@ func (s *Scanner) Mode(yacc bool) {
 
 // Scan works like ScanRaw but recognizes also yacc's C_IDENTIFIER token (in
 // yacc mode).
-func (s *Scanner) Scan() (tok Token, lval interface{}) {
-	tok, lval = s.ScanRaw()
+func (s *Scanner) Scan() (tok Token, lval interface{}, num int) {
+	tok, lval, num = s.ScanRaw()
 	if s.sc != _INITIAL || tok != IDENTIFIER {
 		return
 	}
 
 	i, nl, nc, c := s.i, s.NLine, s.NCol, s.c
-	tok2, lit := s.ScanRaw()
+	tok2, lit, _ := s.ScanRaw()
 	if tok2 != ILLEGAL || lit.(string) != ":" {
 		s.i, s.NLine, s.NCol, s.c = i, nl, nc, c
 		return
 	}
 
-	return C_IDENTIFIER, lval
+	return C_IDENTIFIER, lval, 0
 }
 
 // ScanRaw scans the next token and returns the token and its value if
@@ -392,10 +402,16 @@ func (s *Scanner) Scan() (tok Token, lval interface{}) {
 // lval has has the corresponding value - not the string representation of the
 // value. However, numeric literals which overflow the corresponding Go
 // predeclared types are returned as string.
+//
+// If the returned token is DLR_NUM or DLR_TAG_DLR, lval has the corresponding
+// number (int) or tag (string).
+//
+// If the returned token is DLR_TAG_NUM, lval has the corresponding tag (string)
+// and num has the corresponding number.
 // 
 // If the returned token is ILLEGAL, the literal string is the offending
 // character or number/string/char literal.
-func (s *Scanner) ScanRaw() (tok Token, lval interface{}) {
+func (s *Scanner) ScanRaw() (tok Token, lval interface{}, num int) {
 	//defer func() { fmt.Printf("%s(%d) %v\n", tok, int(tok), lval) }()
 	c0, c := s.c, s.c
 %}
@@ -461,87 +477,109 @@ union		{u}{n}{i}{o}{n}
 			s.i0, s.Line, s.Col, c0 = s.i, s.NLine, s.NCol, c
 			
 <*>\0			s.i0++
-			return EOF, lval
+			return EOF, lval, 0
 
 <INITIAL,_GO>[ \t\n\r]+
 
 <INITIAL,_GO>\/\*([^*]|\*+[^*/])*\*+\/
 			|
-<INITIAL,_GO>\/\/.*	return COMMENT, string(s.val)
+<INITIAL,_GO>\/\/.*	return COMMENT, string(s.val), 0
 
-<_GO>"!"		return NOT, lval
-<_GO>"!="		return NEQ, lval
-<_GO>"%"		return REM, lval
-<_GO>"%="		return REM_ASSIGN, lval
-<_GO>"&"		return AND, lval
-<_GO>"&&"		return LAND, lval
-<_GO>"&="		return AND_ASSIGN, lval
-<_GO>"&^"		return AND_NOT, lval
-<_GO>"&^="		return AND_NOT_ASSIGN, lval
-<_GO>"("		return LPAREN, lval
-<_GO>")"		return RPAREN, lval
-<_GO>"*"		return MUL, lval
-<_GO>"*="		return MUL_ASSIGN, lval
-<_GO>"+"		return ADD, lval
-<_GO>"++"		return INC, lval
-<_GO>"+="		return ADD_ASSIGN, lval
-<_GO>","		return COMMA, lval
-<_GO>"-"		return SUB, lval
-<_GO>"--"		return DEC, lval
-<_GO>"-="		return SUB_ASSIGN, lval
-<_GO>"."		return PERIOD, lval
-<_GO>"..."		return ELLIPSIS, lval
-<_GO>"/"		return QUO, lval
-<_GO>"/="		return QUO_ASSIGN, lval
-<_GO>":"		return COLON, lval
-<_GO>":="		return DEFINE, lval
-<_GO>";"		return SEMICOLON, lval
-<_GO>"<"		return LSS, lval
-<_GO>"<-"		return ARROW, lval
-<_GO>"<<"		return SHL, lval
-<_GO>"<<="		return SHL_ASSIGN, lval
-<_GO>"<="		return LEQ, lval
-<_GO>"="		return ASSIGN, lval
-<_GO>"=="		return EQL, lval
-<_GO>">"		return GTR, lval
-<_GO>">="		return GEQ, lval
-<_GO>">>"		return SHR, lval
-<_GO>">>="		return SHR_ASSIGN, lval
-<_GO>"["		return LBRACK, lval
-<_GO>"]"		return RBRACK, lval
-<_GO>"^"		return XOR, lval
-<_GO>"^="		return XOR_ASSIGN, lval
-<_GO>"{"		return LBRACE, lval
-<_GO>"|"		return OR, lval
-<_GO>"|="		return OR_ASSIGN, lval
-<_GO>"||"		return LOR, lval
-<_GO>"}"			return RBRACE, lval
+<_GO>$-?{D}
+	v := s.val[1:]
+	neg := v[0] == '-'
+	if neg {
+		v = v[1:]
+	}
+	n, err := strconv.ParseUint(string(v), 0, 32)
+	if err != nil {
+		fmt.Printf("%q\n", v)
+		return ILLEGAL, nil, 0
+	}
 
-<_GO>break		return BREAK, lval
-<_GO>case		return CASE, lval
-<_GO>chan		return CHAN, lval
-<_GO>const		return CONST, lval
-<_GO>continue		return CONTINUE, lval
-<_GO>default		return DEFAULT, lval
-<_GO>defer		return DEFER, lval
-<_GO>else		return ELSE, lval
-<_GO>fallthrough	return FALLTHROUGH, lval
-<_GO>for		return FOR, lval
-<_GO>func		return FUNC, lval
-<_GO>go			return GO, lval
-<_GO>goto		return GOTO, lval
-<_GO>if			return IF, lval
-<_GO>import		return IMPORT, lval
-<_GO>interface		return INTERFACE, lval
-<_GO>map		return MAP, lval
-<_GO>package		return PACKAGE, lval
-<_GO>range		return RANGE, lval
-<_GO>return		return RETURN, lval
-<_GO>select		return SELECT, lval
-<_GO>struct		return STRUCT, lval
-<_GO>switch		return SWITCH, lval
-<_GO>type		return GO_TYPE, lval
-<_GO>var		return VAR, lval
+	num = int(n)
+	if neg {
+		num *= -1
+	}
+	return DLR_NUM, lval, num
+
+<_GO>$<[a-zA-Z_][a-zA-Z0-9_.]*>\$
+	return DLR_TAG_DLR, string(s.val[2:len(s.val)-2]), 0
+
+<_GO>"$$"		return DLR_DLR, lval, 0
+<_GO>"!"		return NOT, lval, 0
+<_GO>"!="		return NEQ, lval, 0
+<_GO>"%"		return REM, lval, 0
+<_GO>"%="		return REM_ASSIGN, lval, 0
+<_GO>"&"		return AND, lval, 0
+<_GO>"&&"		return LAND, lval, 0
+<_GO>"&="		return AND_ASSIGN, lval, 0
+<_GO>"&^"		return AND_NOT, lval, 0
+<_GO>"&^="		return AND_NOT_ASSIGN, lval, 0
+<_GO>"("		return LPAREN, lval, 0
+<_GO>")"		return RPAREN, lval, 0
+<_GO>"*"		return MUL, lval, 0
+<_GO>"*="		return MUL_ASSIGN, lval, 0
+<_GO>"+"		return ADD, lval, 0
+<_GO>"++"		return INC, lval, 0
+<_GO>"+="		return ADD_ASSIGN, lval, 0
+<_GO>","		return COMMA, lval, 0
+<_GO>"-"		return SUB, lval, 0
+<_GO>"--"		return DEC, lval, 0
+<_GO>"-="		return SUB_ASSIGN, lval, 0
+<_GO>"."		return PERIOD, lval, 0
+<_GO>"..."		return ELLIPSIS, lval, 0
+<_GO>"/"		return QUO, lval, 0
+<_GO>"/="		return QUO_ASSIGN, lval, 0
+<_GO>":"		return COLON, lval, 0
+<_GO>":="		return DEFINE, lval, 0
+<_GO>";"		return SEMICOLON, lval, 0
+<_GO>"<"		return LSS, lval, 0
+<_GO>"<-"		return ARROW, lval, 0
+<_GO>"<<"		return SHL, lval, 0
+<_GO>"<<="		return SHL_ASSIGN, lval, 0
+<_GO>"<="		return LEQ, lval, 0
+<_GO>"="		return ASSIGN, lval, 0
+<_GO>"=="		return EQL, lval, 0
+<_GO>">"		return GTR, lval, 0
+<_GO>">="		return GEQ, lval, 0
+<_GO>">>"		return SHR, lval, 0
+<_GO>">>="		return SHR_ASSIGN, lval, 0
+<_GO>"["		return LBRACK, lval, 0
+<_GO>"]"		return RBRACK, lval, 0
+<_GO>"^"		return XOR, lval, 0
+<_GO>"^="		return XOR_ASSIGN, lval, 0
+<_GO>"{"		return LBRACE, lval, 0
+<_GO>"|"		return OR, lval, 0
+<_GO>"|="		return OR_ASSIGN, lval, 0
+<_GO>"||"		return LOR, lval, 0
+<_GO>"}"		return RBRACE, lval, 0
+
+<_GO>break		return BREAK, lval, 0
+<_GO>case		return CASE, lval, 0
+<_GO>chan		return CHAN, lval, 0
+<_GO>const		return CONST, lval, 0
+<_GO>continue		return CONTINUE, lval, 0
+<_GO>default		return DEFAULT, lval, 0
+<_GO>defer		return DEFER, lval, 0
+<_GO>else		return ELSE, lval, 0
+<_GO>fallthrough	return FALLTHROUGH, lval, 0
+<_GO>for		return FOR, lval, 0
+<_GO>func		return FUNC, lval, 0
+<_GO>go			return GO, lval, 0
+<_GO>goto		return GOTO, lval, 0
+<_GO>if			return IF, lval, 0
+<_GO>import		return IMPORT, lval, 0
+<_GO>interface		return INTERFACE, lval, 0
+<_GO>map		return MAP, lval, 0
+<_GO>package		return PACKAGE, lval, 0
+<_GO>range		return RANGE, lval, 0
+<_GO>return		return RETURN, lval, 0
+<_GO>select		return SELECT, lval, 0
+<_GO>struct		return STRUCT, lval, 0
+<_GO>switch		return SWITCH, lval, 0
+<_GO>type		return GO_TYPE, lval, 0
+<_GO>var		return VAR, lval, 0
 
 <_GO>{imaginary_ilit}	return s.int(IMAG)
 <_GO>{imaginary_lit}	return s.float(IMAG)
@@ -552,31 +590,31 @@ union		{u}{n}{i}{o}{n}
 <INITIAL,_GO>`		s.ssc, s.sc = s.sc, _S2
 
 <INITIAL,_GO>''			|
-<INITIAL,_GO>'(\\.)?[^']*	return CHAR, string(s.val)
+<INITIAL,_GO>'(\\.)?[^']*	return CHAR, string(s.val), 0
 
 <INITIAL,_GO>'(\\.)?[^']*'	
 			s.ssc = s.sc
-			if tok, lval = s.str(""); tok != STRING {
+			if tok, lval, _ = s.str(""); tok != STRING {
 				return
 			}
 			s.i0++
-			return CHAR, int32(lval.(string)[0])
+			return CHAR, int32(lval.(string)[0]), 0
 
 <_S1>(\\.|[^\\"])*\"	return s.str("\"")
 <_S2>([^`]|\n)*`	return s.str("`")
 
-"%{"			return LCURL, lval
-"%}"			return RCURL, lval
-%%			return MARK, lval
-%{errorverbose}		return ERR_VERBOSE, lval
-%{left}			return LEFT, lval
-%{nonassoc}		return NONASSOC, lval
-%{prec}			return PREC, lval
-%{right}		return RIGHT, lval
-%{start}		return START, lval
-%{token}		return TOKEN, lval
-%{type}			return TYPE, lval
-%{union}		return UNION, lval
+"%{"			return LCURL, lval, 0
+"%}"			return RCURL, lval, 0
+%%			return MARK, lval, 0
+%{errorverbose}		return ERR_VERBOSE, lval, 0
+%{left}			return LEFT, lval, 0
+%{nonassoc}		return NONASSOC, lval, 0
+%{prec}			return PREC, lval, 0
+%{right}		return RIGHT, lval, 0
+%{start}		return START, lval, 0
+%{token}		return TOKEN, lval, 0
+%{type}			return TYPE, lval, 0
+%{union}		return UNION, lval, 0
 
 <_GO>[a-zA-Z_][a-zA-Z0-9_]*
 	if c >= '\xC2' && c <= '\xF4' {
@@ -589,7 +627,7 @@ union		{u}{n}{i}{o}{n}
 		return
 	}
 
-	return IDENT, string(s.val)
+	return IDENT, string(s.val), 0
 
 <INITIAL>[a-zA-Z_][a-zA-Z0-9_.]*
 	if c >= '\xC2' && c <= '\xF4' {
@@ -602,7 +640,7 @@ union		{u}{n}{i}{o}{n}
 		return
 	}
 
-	return IDENTIFIER, string(s.val)
+	return IDENTIFIER, string(s.val), 0
 
 <_GO>{non_ascii}
 	s.i = s.i0-1
@@ -611,13 +649,13 @@ union		{u}{n}{i}{o}{n}
 		s.i += sz
 		s.next()
 		s.err("expected unicode lettter, got %U", rune)
-		return ILLEGAL, string(-rune)
+		return ILLEGAL, string(-rune), 0
 	}
 
 	for rune := rune(1) ; rune >= 0; rune = s.getRune(true, false) {
 	}
 	s.next()
-	return IDENT, string(s.src[s.i0-1:s.i-1])
+	return IDENT, string(s.src[s.i0-1:s.i-1]), 0
 
 <INITIAL>{non_ascii}
 	s.i = s.i0-1
@@ -626,17 +664,17 @@ union		{u}{n}{i}{o}{n}
 		s.i += sz
 		s.next()
 		s.err("expected unicode lettter, got %U", rune)
-		return ILLEGAL, string(-rune)
+		return ILLEGAL, string(-rune), 0
 	}
 
 	for rune := rune(1) ; rune >= 0; rune = s.getRune(true, true) {
 	}
 	s.next()
-	return IDENTIFIER, string(s.src[s.i0-1:s.i-1])
+	return IDENTIFIER, string(s.src[s.i0-1:s.i-1]), 0
 
 %%
 	s.next()
-	return ILLEGAL, string(c0)
+	return ILLEGAL, string(c0), 0
 }
 
 func (s *Scanner) getRune(acceptDigits, acceptDot bool) (r rune) {
@@ -651,20 +689,20 @@ func (s *Scanner) getRune(acceptDigits, acceptDot bool) (r rune) {
 	return -r
 }
 
-func (s *Scanner) str(pref string) (tok Token, lval interface{}) {
+func (s *Scanner) str(pref string) (tok Token, lval interface{}, num int) {
 	s.sc = s.ssc
 	ss := pref + string(s.val)
 	ss, err := strconv.Unquote(ss)
 	if err != nil {
 		s.err("string literal %q: %v", ss, err)
-		return ILLEGAL, ss
+		return ILLEGAL, ss, 0
 	}
 
 	s.i0--
-	return STRING, ss
+	return STRING, ss, 0
 }
 
-func (s *Scanner) int(tk Token) (tok Token, lval interface{}) {
+func (s *Scanner) int(tk Token) (tok Token, lval interface{}, num int) {
 	tok = tk
 	if tok == IMAG {
 		s.val = s.val[:len(s.val)-1]
@@ -680,7 +718,7 @@ func (s *Scanner) int(tk Token) (tok Token, lval interface{}) {
 	return
 }
 
-func (s *Scanner) float(tk Token) (tok Token, lval interface{}) {
+func (s *Scanner) float(tk Token) (tok Token, lval interface{}, num int) {
 	tok = tk
 	if tok == IMAG {
 		s.val = s.val[:len(s.val)-1]
