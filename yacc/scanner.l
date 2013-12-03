@@ -7,9 +7,9 @@
 // CAUTION: If this file is a Go source file (*.go), it was generated
 // automatically by '$ golex' from a *.l file - DO NOT EDIT in that case!
 
-// Package scanner (WIP:TODO) implements a scanner for yacc[1] source text with
-// actions written in Go. It takes a []byte as source which can then be
-// tokenized through repeated calls to the Scan method.
+// Package scanner implements a scanner for yacc[1] source text with actions
+// written in Go. It takes a []byte as source which can then be tokenized
+// through repeated calls to the Scan method.
 //
 // Links
 // 
@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -145,7 +146,7 @@ const (
 	DLR_DLR      // $$
 	DLR_NUM      // $1
 	DLR_TAG_DLR  // $<tag>$
-	DLR_TAG_NUM  // $<tag>2 //TODO
+	DLR_TAG_NUM  // $<tag>2
 
 	// yacc mode tokens
 	C_IDENTIFIER // IDENTIFIER ':'
@@ -403,8 +404,8 @@ func (s *Scanner) Scan() (tok Token, lval interface{}, num int) {
 // value. However, numeric literals which overflow the corresponding Go
 // predeclared types are returned as string.
 //
-// If the returned token is DLR_NUM or DLR_TAG_DLR, lval has the corresponding
-// number (int) or tag (string).
+// If the returned token is DLR_NUM or DLR_TAG_DLR, num has the corresponding
+// number (int) or lval has the corresponding tag (string).
 //
 // If the returned token is DLR_TAG_NUM, lval has the corresponding tag (string)
 // and num has the corresponding number.
@@ -505,6 +506,25 @@ union		{u}{n}{i}{o}{n}
 
 <_GO>$<[a-zA-Z_][a-zA-Z0-9_.]*>\$
 	return DLR_TAG_DLR, string(s.val[2:len(s.val)-2]), 0
+
+<_GO>$<[a-zA-Z_][a-zA-Z0-9_.]*>-?{D}
+	a := strings.Split(string(s.val[2:]), ">")
+	v := a[1]
+	neg := v[0] == '-'
+	if neg {
+		v = v[1:]
+	}
+	n, err := strconv.ParseUint(string(v), 0, 32)
+	if err != nil {
+		fmt.Printf("%q\n", v)
+		return ILLEGAL, nil, 0
+	}
+
+	num = int(n)
+	if neg {
+		num *= -1
+	}
+	return DLR_TAG_NUM, a[0], num
 
 <_GO>"$$"		return DLR_DLR, lval, 0
 <_GO>"!"		return NOT, lval, 0

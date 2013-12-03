@@ -225,6 +225,12 @@ func TestGoTokens(t *testing.T) {
 		{"$<a_b>$", DLR_TAG_DLR, "a_b", 0},
 		{"$<a.b>$", DLR_TAG_DLR, "a.b", 0},
 		{"$<abc>$", DLR_TAG_DLR, "abc", 0},
+
+		{"$<>1", ILLEGAL, "$", 0}, // 155
+		{"$<a>-2", DLR_TAG_NUM, "a", -2},
+		{"$<a_b>-1", DLR_TAG_NUM, "a_b", -1},
+		{"$<a.b>0", DLR_TAG_NUM, "a.b", 0},
+		{"$<abc>1", DLR_TAG_NUM, "abc", 1},
 	})
 }
 
@@ -419,6 +425,24 @@ func TestYaccTokens(t *testing.T) {
 		{"f1234567890.foo", IDENTIFIER, "f1234567890.foo", 0},
 
 		{"b.fooár", IDENTIFIER, "b.fooár", 0}, // 155
+		{"$$", ILLEGAL, "$", 0},
+		{"$-2", ILLEGAL, "$", 0},
+		{"$-1", ILLEGAL, "$", 0},
+		{"$0", ILLEGAL, "$", 0},
+
+		{"$1", ILLEGAL, "$", 0}, // 160
+		{"$<>$", ILLEGAL, "$", 0},
+		{"$<a>$", ILLEGAL, "$", 0},
+		{"$<a_b>$", ILLEGAL, "$", 0},
+		{"$<a.b>$", ILLEGAL, "$", 0},
+
+		{"$<abc>$", ILLEGAL, "$", 0}, // 165
+		{"$<>1", ILLEGAL, "$", 0},
+		{"$<a>-2", ILLEGAL, "$", 0},
+		{"$<a_b>-1", ILLEGAL, "$", 0},
+		{"$<a.b>0", ILLEGAL, "$", 0},
+
+		{"$<abc>1", ILLEGAL, "$", 0}, // 170
 
 		// --
 
@@ -427,25 +451,25 @@ func TestYaccTokens(t *testing.T) {
 		{"a :", C_IDENTIFIER, "a", 0},
 		{"a : ", C_IDENTIFIER, "a", 0},
 
-		{" a:", C_IDENTIFIER, "a", 0}, // 160
+		{" a:", C_IDENTIFIER, "a", 0}, // 175
 		{" a: ", C_IDENTIFIER, "a", 0},
 		{" a :", C_IDENTIFIER, "a", 0},
 		{" a : ", C_IDENTIFIER, "a", 0},
 		{"ab:", C_IDENTIFIER, "ab", 0},
 
-		{"ab: ", C_IDENTIFIER, "ab", 0}, // 165
+		{"ab: ", C_IDENTIFIER, "ab", 0}, // 180
 		{"ab :", C_IDENTIFIER, "ab", 0},
 		{"ab : ", C_IDENTIFIER, "ab", 0},
 		{" ab:", C_IDENTIFIER, "ab", 0},
 		{" ab: ", C_IDENTIFIER, "ab", 0},
 
-		{" ab :", C_IDENTIFIER, "ab", 0}, // 170
+		{" ab :", C_IDENTIFIER, "ab", 0}, // 185
 		{" ab : ", C_IDENTIFIER, "ab", 0},
 		{"a.b:", C_IDENTIFIER, "a.b", 0},
 		{"a.b: ", C_IDENTIFIER, "a.b", 0},
 		{"a.b :", C_IDENTIFIER, "a.b", 0},
 
-		{"a.b : ", C_IDENTIFIER, "a.b", 0}, // 175
+		{"a.b : ", C_IDENTIFIER, "a.b", 0}, // 190
 		{" a.b:", C_IDENTIFIER, "a.b", 0},
 		{" a.b: ", C_IDENTIFIER, "a.b", 0},
 		{" a.b :", C_IDENTIFIER, "a.b", 0},
