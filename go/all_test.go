@@ -307,7 +307,7 @@ func TestStdlib(t *testing.T) {
 }
 
 func TestTestData(t *testing.T) {
-	test(t, "testdata")
+	test(t, "_testdata")
 }
 
 func TestTests(t *testing.T) {
@@ -490,7 +490,7 @@ func TestStdlibSemis(t *testing.T) {
 }
 
 func TestTestDataSemis(t *testing.T) {
-	testSemis(t, "testdata")
+	testSemis(t, "_testdata")
 }
 
 func TestTestsSemis(t *testing.T) {
