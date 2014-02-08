@@ -70,56 +70,56 @@ func TestGoTokens(t *testing.T) {
 		{"a", token.IDENT, "a"},
 
 		{"ab", token.IDENT, "ab"}, // 10
-		{"1", token.INT, uint64(1)},
-		{"12", token.INT, uint64(12)},
-		{`""`, token.STRING, ""},
-		{`"1"`, token.STRING, "1"},
+		{"1", token.INT, "1"},
+		{"12", token.INT, "12"},
+		{`""`, token.STRING, `""`},
+		{`"1"`, token.STRING, `"1"`},
 
-		{`"12"`, token.STRING, "12"}, // 15
-		{"``", token.STRING, ""},
-		{"`1`", token.STRING, "1"},
-		{"`12`", token.STRING, "12"},
-		{"'@'", token.CHAR, int32('@')},
+		{`"12"`, token.STRING, `"12"`}, // 15
+		{"``", token.STRING, "``"},
+		{"`1`", token.STRING, "`1`"},
+		{"`12`", token.STRING, "`12`"},
+		{"'@'", token.CHAR, "'@'"},
 
 		{"a ", token.IDENT, "a"}, // 20
 		{"ab ", token.IDENT, "ab"},
-		{"1 ", token.INT, uint64(1)},
-		{"12 ", token.INT, uint64(12)},
-		{`"" `, token.STRING, ""},
+		{"1 ", token.INT, "1"},
+		{"12 ", token.INT, "12"},
+		{`"" `, token.STRING, `""`},
 
-		{`"1" `, token.STRING, "1"}, // 25
-		{`"12" `, token.STRING, "12"},
-		{"`` ", token.STRING, ""},
-		{"`1` ", token.STRING, "1"},
-		{"`12` ", token.STRING, "12"},
+		{`"1" `, token.STRING, `"1"`}, // 25
+		{`"12" `, token.STRING, `"12"`},
+		{"`` ", token.STRING, "``"},
+		{"`1` ", token.STRING, "`1`"},
+		{"`12` ", token.STRING, "`12`"},
 
-		{"'@' ", token.CHAR, int32('@')}, // 30
+		{"'@' ", token.CHAR, "'@'"}, // 30
 		{" a", token.IDENT, "a"},
 		{" ab", token.IDENT, "ab"},
-		{" 1", token.INT, uint64(1)},
-		{" 12", token.INT, uint64(12)},
+		{" 1", token.INT, "1"},
+		{" 12", token.INT, "12"},
 
-		{` ""`, token.STRING, ""}, // 35
-		{` "1"`, token.STRING, "1"},
-		{` "12"`, token.STRING, "12"},
-		{" ``", token.STRING, ""},
-		{" `1`", token.STRING, "1"},
+		{` ""`, token.STRING, `""`}, // 35
+		{` "1"`, token.STRING, `"1"`},
+		{` "12"`, token.STRING, `"12"`},
+		{" ``", token.STRING, "``"},
+		{" `1`", token.STRING, "`1`"},
 
-		{" `12`", token.STRING, "12"}, // 40
-		{" '@'", token.CHAR, int32('@')},
+		{" `12`", token.STRING, "`12`"}, // 40
+		{" '@'", token.CHAR, "'@'"},
 		{" a ", token.IDENT, "a"},
 		{" ab ", token.IDENT, "ab"},
-		{" 1 ", token.INT, uint64(1)},
+		{" 1 ", token.INT, "1"},
 
-		{" 12 ", token.INT, uint64(12)}, // 45
-		{` "" `, token.STRING, ""},
-		{` "1" `, token.STRING, "1"},
-		{` "12" `, token.STRING, "12"},
-		{" `` ", token.STRING, ""},
+		{" 12 ", token.INT, "12"}, // 45
+		{` "" `, token.STRING, `""`},
+		{` "1" `, token.STRING, `"1"`},
+		{` "12" `, token.STRING, `"12"`},
+		{" `` ", token.STRING, "``"},
 
-		{" `1` ", token.STRING, "1"}, // 50
-		{" `12` ", token.STRING, "12"},
-		{" '@' ", token.CHAR, int32('@')},
+		{" `1` ", token.STRING, "`1`"}, // 50
+		{" `12` ", token.STRING, "`12`"},
+		{" '@' ", token.CHAR, "'@'"},
 		{"bá", token.IDENT, "bá"},
 		{"bár", token.IDENT, "bár"},
 
@@ -275,11 +275,7 @@ func test(t *testing.T, root string) {
 						t.Fatalf("%d: %T(%#v)", i, lit2, lit2)
 					}
 				case token.STRING:
-					nlit, err := strconv.Unquote(lit)
-					if err != nil {
-						nlit = lit
-					}
-					if g, e := lit2.(string), nlit; g != e {
+					if g, e := lit2, lit; g != e {
 						t.Fatalf("%d.%d %s %q %q %s %s // %q", count, i, tok, g, e, p2, p, lit)
 					}
 				case token.ILLEGAL:

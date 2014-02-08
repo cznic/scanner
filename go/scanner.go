@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"go/token"
-	"strconv"
 	"unicode"
 	"unicode/utf8"
 )
@@ -568,7 +567,7 @@ yystate37:
 
 yystate38:
 	c = s.next()
-	goto yyrule78
+	goto yyrule79
 
 yystate39:
 	c = s.next()
@@ -628,7 +627,7 @@ yystate45:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule79
+		goto yyrule77
 	case c == '.':
 		goto yystate34
 	case c == '8' || c == '9':
@@ -647,7 +646,7 @@ yystate46:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule79
+		goto yyrule77
 	case c == '.':
 		goto yystate34
 	case c == '8' || c == '9':
@@ -677,7 +676,7 @@ yystate47:
 
 yystate48:
 	c = s.next()
-	goto yyrule77
+	goto yyrule78
 
 yystate49:
 	c = s.next()
@@ -692,7 +691,7 @@ yystate50:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule79
+		goto yyrule77
 	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
 		goto yystate50
 	}
@@ -701,7 +700,7 @@ yystate51:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule79
+		goto yyrule77
 	case c == '.':
 		goto yystate34
 	case c == 'E' || c == 'e':
@@ -2472,21 +2471,18 @@ yyrule76: // var
 	{
 		return token.VAR, lval
 	}
-yyrule77: // {imaginary_ilit}
+yyrule77: // {int_lit}
 	{
-		return s.int(token.IMAG)
+		return token.INT, string(s.val)
 	}
-yyrule78: // {imaginary_lit}
+yyrule78: // {imaginary_ilit}
+yyrule79: // {imaginary_lit}
 	{
-		return s.float(token.IMAG)
-	}
-yyrule79: // {int_lit}
-	{
-		return s.int(token.INT)
+		return token.IMAG, string(s.val)
 	}
 yyrule80: // {float_lit}
 	{
-		return s.float(token.FLOAT)
+		return token.FLOAT, string(s.val)
 	}
 yyrule81: // \"
 	{
@@ -2499,33 +2495,22 @@ yyrule82: // `
 		goto yystate0
 	}
 yyrule83: // ''
-	{
-		return token.CHAR, string(s.val)
-	}
 yyrule84: // '(\\.)?[^']*
-	{
-		return token.CHAR, string(s.val)
-	}
 yyrule85: // '(\\.)?[^']*'
 	{
-		if tok, lval = s.str(""); tok != token.STRING {
-			tok = token.CHAR
-			return
-		}
-		s.i0++
-		ss := lval.(string)
-		if ss != "" {
-			return token.CHAR, int32(ss[0])
-		}
 		return token.CHAR, string(s.val)
 	}
 yyrule86: // (\\.|[^\\"])*\"
 	{
-		return s.str("\"")
+		s.Col--
+		s.i0--
+		return token.STRING, `"` + string(s.val)
 	}
 yyrule87: // ([^`]|\n)*`
 	{
-		return s.str("`")
+		s.Col--
+		s.i0--
+		return token.STRING, "`" + string(s.val)
 	}
 yyrule88: // [a-zA-Z_][a-zA-Z_0-9]*
 	{
@@ -2576,50 +2561,4 @@ func (s *Scanner) getRune(acceptDigits bool) (r rune) {
 	}
 
 	return -r
-}
-
-func (s *Scanner) str(pref string) (tok token.Token, lval interface{}) {
-	s.sc = 0
-	ss0 := pref + string(s.val)
-	ss, err := strconv.Unquote(ss0)
-	if err != nil {
-		s.err("string literal %q: %v", ss, err)
-		s.i0--
-		return token.STRING, ss0
-	}
-
-	s.i0--
-	return token.STRING, ss
-}
-
-func (s *Scanner) int(tk token.Token) (tok token.Token, lval interface{}) {
-	tok = tk
-	if tok == token.IMAG {
-		s.val = s.val[:len(s.val)-1]
-	}
-	n, err := strconv.ParseUint(string(s.val), 0, 64)
-	if err != nil {
-		lval = string(s.val)
-	} else if tok == token.IMAG {
-		lval = complex(0, float64(n))
-	} else {
-		lval = n
-	}
-	return
-}
-
-func (s *Scanner) float(tk token.Token) (tok token.Token, lval interface{}) {
-	tok = tk
-	if tok == token.IMAG {
-		s.val = s.val[:len(s.val)-1]
-	}
-	n, err := strconv.ParseFloat(string(s.val), 64)
-	if err != nil {
-		lval = string(s.val)
-	} else if tok == token.IMAG {
-		lval = complex(0, n)
-	} else {
-		lval = n
-	}
-	return
 }

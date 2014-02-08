@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"go/token"
-	"strconv"
 	"unicode"
 	"unicode/utf8"
 )
@@ -302,31 +301,24 @@ switch			return token.SWITCH, lval
 type			return token.TYPE, lval
 var			return token.VAR, lval
 
-{imaginary_ilit}	return s.int(token.IMAG)
-{imaginary_lit}		return s.float(token.IMAG)
-{int_lit}		return s.int(token.INT)
-{float_lit}		return s.float(token.FLOAT)
+{int_lit}		return token.INT, string(s.val)
+{imaginary_ilit}	|
+{imaginary_lit}		return token.IMAG, string(s.val)
+{float_lit}		return token.FLOAT, string(s.val)
 
 \"			s.sc = S1
 `			s.sc = S2
 
-''			return token.CHAR, string(s.val)
-'(\\.)?[^']*		return token.CHAR, string(s.val)
+''			|
+'(\\.)?[^']*		|
+'(\\.)?[^']*'		return token.CHAR, string(s.val)
 
-'(\\.)?[^']*'		if tok, lval = s.str(""); tok != token.STRING {
-				tok = token.CHAR
-				return
-			}
-			s.i0++
-			ss := lval.(string)
-			if ss != "" {
-				return token.CHAR, int32(ss[0])
-			}
-
-			return token.CHAR, string(s.val)
-
-<S1>(\\.|[^\\"])*\"	return s.str("\"")
-<S2>([^`]|\n)*`		return s.str("`")
+<S1>(\\.|[^\\"])*\"	s.Col--
+			s.i0--
+			return token.STRING, `"`+string(s.val)
+<S2>([^`]|\n)*`		s.Col--
+			s.i0--
+			return token.STRING, "`"+string(s.val)
 
 [a-zA-Z_][a-zA-Z_0-9]*
 	if c >= '\xC2' && c <= '\xF4' {
@@ -370,50 +362,4 @@ func (s *Scanner) getRune(acceptDigits bool) (r rune) {
 	}
 
 	return -r
-}
-
-func (s *Scanner) str(pref string) (tok token.Token, lval interface{}) {
-	s.sc = 0
-	ss0 := pref + string(s.val)
-	ss, err := strconv.Unquote(ss0)
-	if err != nil {
-		s.err("string literal %q: %v", ss, err)
-		s.i0--
-		return token.STRING, ss0
-	}
-
-	s.i0--
-	return token.STRING, ss
-}
-
-func (s *Scanner) int(tk token.Token) (tok token.Token, lval interface{}) {
-	tok = tk
-	if tok == token.IMAG {
-		s.val = s.val[:len(s.val)-1]
-	}
-	n, err := strconv.ParseUint(string(s.val), 0, 64)
-	if err != nil {
-		lval = string(s.val)
-	} else if tok == token.IMAG {
-		lval = complex(0, float64(n))
-	} else {
-		lval = n
-	}
-	return
-}
-
-func (s *Scanner) float(tk token.Token) (tok token.Token, lval interface{}) {
-	tok = tk
-	if tok == token.IMAG {
-		s.val = s.val[:len(s.val)-1]
-	}
-	n, err := strconv.ParseFloat(string(s.val), 64)
-	if err != nil {
-		lval = string(s.val)
-	} else if tok == token.IMAG {
-		lval = complex(0, n)
-	} else {
-		lval = n
-	}
-	return
 }
