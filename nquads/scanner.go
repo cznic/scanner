@@ -19,142 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"unicode"
 )
-
-// Productions for terminals
-//
-// LANGTAG		::=	'@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
-// EOL			::=	[#xD#xA]+
-// IRIREF		::=	'<' ([^#x00-#x20<>"{}|^`\] | UCHAR)* '>'
-// STRING_LITERAL_QUOTE	::=	'"' ([^#x22#x5C#xA#xD] | ECHAR | UCHAR)* '"'
-// BLANK_NODE_LABEL	::=	'_:' (PN_CHARS_U | [0-9]) ((PN_CHARS | '.')* PN_CHARS)?
-// UCHAR		::=	'\u' HEX HEX HEX HEX | '\U' HEX HEX HEX HEX HEX HEX HEX HEX
-// ECHAR		::=	'\' [tbnrf"'\]
-// PN_CHARS_BASE	::=	[A-Z] | [a-z] | [#x00C0-#x00D6] | [#x00D8-#x00F6]
-// 	| [#x00F8-#x02FF] | [#x0370-#x037D] | [#x037F-#x1FFF] | [#x200C-#x200D]
-// 	| [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF]
-// 	| [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
-// PN_CHARS_U		::=	PN_CHARS_BASE | '_' | ':'
-// PN_CHARS		::=	PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
-// HEX			::=	[0-9] | [A-F] | [a-f]
-
-// Token is the type of the token identifier returned by Scan().
-type Token int
-
-// Values of Token.
-//  [0]: http://www.w3.org/TR/n-quads/#grammar-production-BLANK_NODE_LABEL
-//  [1]: http://www.w3.org/TR/n-quads/#grammar-production-EOL
-//  [2]: http://www.w3.org/TR/n-quads/#grammar-production-IRIREF
-//  [3]: http://www.w3.org/TR/n-quads/#grammar-production-LANGTAG
-//  [4]: http://www.w3.org/TR/n-quads/#grammar-production-STRING_LITERAL_QUOTE
-const (
-	_ = 0xE000 + iota
-
-	// ------------------------------------------- N-Quads terminals
-
-	// Special tokens
-	ILLEGAL Token = iota
-	EOF
-
-	LABEL   // [0]
-	EOL     // [1]
-	IRIREF  // [2]
-	LANGTAG // [3]
-	STRING  // [4]
-)
-
-var ts = map[Token]string{
-	ILLEGAL: "ILLEGAL",
-	EOF:     "EOF",
-	LABEL:   "LABEL",
-	EOL:     "EOL",
-	IRIREF:  "IRIREF",
-	LANGTAG: "LANGTAG",
-	STRING:  "STRING",
-}
-
-// String implements fmt.Stringer
-func (i Token) String() string {
-	if s := ts[i]; s != "" {
-		return s
-	}
-
-	return fmt.Sprintf("Token(%d)", int(i))
-}
-
-// A Scanner holds the scanner's internal state while processing a given text.
-type Scanner struct {
-	Col    int     // Starting column of the last scanned token.
-	Errors []error // List of accumulated errors.
-	Fname  string  // File name (reported) of the scanned source.
-	Line   int     // Starting line of the last scanned token.
-	NCol   int     // Starting column (reported) for the next scanned token.
-	NLine  int     // Starting line (reported) for the next scanned token.
-	c      int
-	i      int
-	i0     int
-	sc     int
-	src    []byte
-	ssc    int // saved state condition
-	val    []byte
-}
-
-// New returns a newly created Scanner.
-func New(src []byte) (s *Scanner) {
-	if len(src) > 2 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF {
-		src = src[3:]
-	}
-	s = &Scanner{
-		src:   src,
-		NLine: 1,
-		NCol:  0,
-	}
-	s.next()
-	return
-}
-
-func (s *Scanner) next() int {
-	if s.c != 0 {
-		s.val = append(s.val, byte(s.c))
-	}
-	s.c = 0
-	if s.i < len(s.src) {
-		s.c = int(s.src[s.i])
-		s.i++
-		switch s.c {
-		case '\n':
-			s.NLine++
-			s.NCol = 0
-			if s.i == len(s.src) {
-				s.NCol = 1
-			}
-		default:
-			s.NCol++
-		}
-	}
-	return s.c
-}
-
-// Pos returns the starting offset of the last scanned token.
-func (s *Scanner) Pos() int {
-	return s.i0
-}
-
-func (s *Scanner) err(format string, arg ...interface{}) {
-	err := fmt.Errorf(fmt.Sprintf("%s:%d:%d ", s.Fname, s.Line, s.Col)+format, arg...)
-	s.Errors = append(s.Errors, err)
-}
-
-// Error implements yyLexer.
-func (s *Scanner) Error(msg string) {
-	switch msg {
-	case "syntax error":
-		s.err(msg)
-	default:
-		s.Errors = append(s.Errors, errors.New(msg))
-	}
-}
 
 // Scan scans the next token and returns the token and its value if applicable.
 // The source end is indicated by EOF.
@@ -180,29 +47,35 @@ yystart1:
 		goto yyabort
 	case c == '"':
 		goto yystate5
-	case c == '<':
+	case c == '#':
 		goto yystate16
+	case c == '.':
+		goto yystate17
+	case c == '<':
+		goto yystate18
 	case c == '@':
-		goto yystate27
+		goto yystate29
 	case c == '\n' || c == '\r':
 		goto yystate4
 	case c == '\t' || c == ' ':
 		goto yystate3
 	case c == '\x00':
 		goto yystate2
+	case c == '^':
+		goto yystate33
 	case c == '_':
-		goto yystate31
+		goto yystate35
 	}
 
 yystate2:
 	c = s.next()
-	goto yyrule2
+	goto yyrule1
 
 yystate3:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule1
+		goto yyrule2
 	case c == '\t' || c == ' ':
 		goto yystate3
 	}
@@ -211,7 +84,7 @@ yystate4:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule4
+		goto yyrule7
 	case c == '\n' || c == '\r':
 		goto yystate4
 	}
@@ -231,7 +104,7 @@ yystate5:
 
 yystate6:
 	c = s.next()
-	goto yyrule7
+	goto yyrule10
 
 yystate7:
 	c = s.next()
@@ -322,46 +195,41 @@ yystate16:
 	c = s.next()
 	switch {
 	default:
-		goto yyabort
-	case c == '!' || c >= '#' && c <= ';' || c == '=' || c >= '?' && c <= '[' || c == ']' || c == '_' || c >= 'a' && c <= 'z' || c >= '~' && c <= 'ÿ':
+		goto yyrule3
+	case c >= '\x01' && c <= '\t' || c >= '\v' && c <= 'ÿ':
 		goto yystate16
-	case c == '>':
-		goto yystate17
-	case c == '\\':
-		goto yystate18
 	}
 
 yystate17:
 	c = s.next()
-	goto yyrule5
+	goto yyrule4
 
 yystate18:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
-	case c == 'U':
+	case c == '!' || c >= '#' && c <= ';' || c == '=' || c >= '?' && c <= '[' || c == ']' || c == '_' || c >= 'a' && c <= 'z' || c >= '~' && c <= 'ÿ':
+		goto yystate18
+	case c == '>':
 		goto yystate19
-	case c == 'u':
-		goto yystate23
+	case c == '\\':
+		goto yystate20
 	}
 
 yystate19:
 	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
-		goto yystate20
-	}
+	goto yyrule8
 
 yystate20:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
+	case c == 'U':
 		goto yystate21
+	case c == 'u':
+		goto yystate25
 	}
 
 yystate21:
@@ -415,7 +283,7 @@ yystate26:
 	default:
 		goto yyabort
 	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
-		goto yystate16
+		goto yystate27
 	}
 
 yystate27:
@@ -423,7 +291,7 @@ yystate27:
 	switch {
 	default:
 		goto yyabort
-	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
 		goto yystate28
 	}
 
@@ -431,11 +299,9 @@ yystate28:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule6
-	case c == '-':
-		goto yystate29
-	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
-		goto yystate28
+		goto yyabort
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
+		goto yystate18
 	}
 
 yystate29:
@@ -443,7 +309,7 @@ yystate29:
 	switch {
 	default:
 		goto yyabort
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
 		goto yystate30
 	}
 
@@ -451,10 +317,10 @@ yystate30:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule6
+		goto yyrule9
 	case c == '-':
-		goto yystate29
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+		goto yystate31
+	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
 		goto yystate30
 	}
 
@@ -463,7 +329,7 @@ yystate31:
 	switch {
 	default:
 		goto yyabort
-	case c == ':':
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
 		goto yystate32
 	}
 
@@ -471,58 +337,33 @@ yystate32:
 	c = s.next()
 	switch {
 	default:
-		goto yyabort
-	case c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
-		goto yystate33
-	case c >= 'Â' && c <= 'ß':
-		goto yystate35
-	case c >= 'à' && c <= 'ï':
-		goto yystate36
-	case c >= 'ð' && c <= 'ô':
-		goto yystate37
+		goto yyrule9
+	case c == '-':
+		goto yystate31
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+		goto yystate32
 	}
 
 yystate33:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule3
-	case c == '-' || c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
-		goto yystate33
-	case c == '.':
+		goto yyabort
+	case c == '^':
 		goto yystate34
-	case c >= 'Â' && c <= 'ß':
-		goto yystate35
-	case c >= 'à' && c <= 'ï':
-		goto yystate36
-	case c >= 'ð' && c <= 'ô':
-		goto yystate37
 	}
 
 yystate34:
 	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c == '-' || c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
-		goto yystate33
-	case c == '.':
-		goto yystate34
-	case c >= 'Â' && c <= 'ß':
-		goto yystate35
-	case c >= 'à' && c <= 'ï':
-		goto yystate36
-	case c >= 'ð' && c <= 'ô':
-		goto yystate37
-	}
+	goto yyrule5
 
 yystate35:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
-	case c >= '\u0080' && c <= '¿':
-		goto yystate33
+	case c == ':':
+		goto yystate36
 	}
 
 yystate36:
@@ -530,28 +371,97 @@ yystate36:
 	switch {
 	default:
 		goto yyabort
-	case c >= '\u0080' && c <= '¿':
-		goto yystate35
+	case c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
+		goto yystate37
+	case c >= 'Â' && c <= 'ß':
+		goto yystate39
+	case c >= 'à' && c <= 'ï':
+		goto yystate40
+	case c >= 'ð' && c <= 'ô':
+		goto yystate41
 	}
 
 yystate37:
 	c = s.next()
 	switch {
 	default:
-		goto yyabort
-	case c >= '\u0080' && c <= '¿':
-		goto yystate36
+		goto yyrule6
+	case c == '-' || c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
+		goto yystate37
+	case c == '.':
+		goto yystate38
+	case c >= 'Â' && c <= 'ß':
+		goto yystate39
+	case c >= 'à' && c <= 'ï':
+		goto yystate40
+	case c >= 'ð' && c <= 'ô':
+		goto yystate41
 	}
 
-yyrule1: // [ \t]+
+yystate38:
+	c = s.next()
+	switch {
+	default:
+		goto yyabort
+	case c == '-' || c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
+		goto yystate37
+	case c == '.':
+		goto yystate38
+	case c >= 'Â' && c <= 'ß':
+		goto yystate39
+	case c >= 'à' && c <= 'ï':
+		goto yystate40
+	case c >= 'ð' && c <= 'ô':
+		goto yystate41
+	}
 
-	goto yystate0
-yyrule2: // \0
+yystate39:
+	c = s.next()
+	switch {
+	default:
+		goto yyabort
+	case c >= '\u0080' && c <= '¿':
+		goto yystate37
+	}
+
+yystate40:
+	c = s.next()
+	switch {
+	default:
+		goto yyabort
+	case c >= '\u0080' && c <= '¿':
+		goto yystate39
+	}
+
+yystate41:
+	c = s.next()
+	switch {
+	default:
+		goto yyabort
+	case c >= '\u0080' && c <= '¿':
+		goto yystate40
+	}
+
+yyrule1: // \0
 	{
 		s.i0++
 		return EOF, ""
 	}
-yyrule3: // {blank_node_label}
+yyrule2: // [ \t]+
+
+	goto yystate0
+yyrule3: // #.*
+
+	goto yystate0
+yyrule4: // \.
+	{
+		return DOT, "."
+	}
+yyrule5: // "^^"
+	{
+		return DACCENT, "^^"
+	}
+yyrule6: // {blank_node_label}
 	{
 
 		i := 2
@@ -583,18 +493,33 @@ yyrule3: // {blank_node_label}
 		}
 		return LABEL, string(s.val[2:])
 	}
-yyrule4: // {eol}
+yyrule7: // {eol}
+	{
+		return EOL, ""
+	}
+yyrule8: // {iriref}
+	{
 
-	goto yystate0
-yyrule5: // {iriref}
+		val, err := strconv.Unquote(`"` + string(s.val) + `"`)
+		if err != nil {
+			s.err(err.Error())
+		}
+		return IRIREF, val
+	}
+yyrule9: // {langtag}
+	{
 
-	goto yystate0
-yyrule6: // {langtag}
+		return LANGTAG, string(s.val)
+	}
+yyrule10: // {string_literal_quote}
+	{
 
-	goto yystate0
-yyrule7: // {string_literal_quote}
-
-	goto yystate0
+		val, err := strconv.Unquote(string(s.val))
+		if err != nil {
+			s.err(err.Error())
+		}
+		return STRING, val
+	}
 	panic("unreachable")
 
 	goto yyabort // silence unused label error
@@ -605,8 +530,144 @@ yyabort: // no lexem recognized
 
 }
 
+// Token is the type of the token identifier returned by Scan().
+type Token int
+
+// Values of type Token.
+//  [0]: http://www.w3.org/TR/n-quads/#grammar-production-BLANK_NODE_LABEL
+//  [1]: http://www.w3.org/TR/n-quads/#grammar-production-EOL
+//  [2]: http://www.w3.org/TR/n-quads/#grammar-production-IRIREF
+//  [3]: http://www.w3.org/TR/n-quads/#grammar-production-LANGTAG
+//  [4]: http://www.w3.org/TR/n-quads/#grammar-production-STRING_LITERAL_QUOTE
 const (
-	RuneError = math.MaxInt32
+	_ = Token(0xE000) + iota
+
+	ILLEGAL // Returned when no token was recognized.
+	EOF     // Returned after all source was consumed.
+
+	DOT     // .
+	DACCENT // ^^
+	LABEL   // [0]
+	EOL     // [1]
+	IRIREF  // [2]
+	LANGTAG // [3]
+	STRING  // [4]
+)
+
+var ts = map[Token]string{
+	ILLEGAL: "ILLEGAL",
+	EOF:     "EOF",
+	LABEL:   "LABEL",
+	EOL:     "EOL",
+	IRIREF:  "IRIREF",
+	LANGTAG: "LANGTAG",
+	STRING:  "STRING",
+	DOT:     "DOT",
+	DACCENT: "DACCENT",
+}
+
+// String implements fmt.Stringer
+func (i Token) String() string {
+	if s := ts[i]; s != "" {
+		return s
+	}
+
+	return fmt.Sprintf("Token(%d)", int(i))
+}
+
+func check(r rune, tab []rune) bool {
+	for i := 0; i < len(tab); i += 2 {
+		if r >= tab[i] && r <= tab[i+1] {
+			return true
+		}
+	}
+	return false
+}
+
+func checkPnCharsU(r rune) bool {
+	return check(r, tab[:2*16])
+}
+
+func checkPnChars(r rune) bool {
+	return check(r, tab)
+}
+
+// A Scanner holds the scanner's internal state while processing a given text.
+type Scanner struct {
+	Col    int     // Starting column of the last scanned token.
+	Errors []error // List of accumulated errors.
+	Fname  string  // File name (reported) of the scanned source.
+	Line   int     // Starting line of the last scanned token.
+	NCol   int     // Starting column (reported) for the next scanned token.
+	NLine  int     // Starting line (reported) for the next scanned token.
+	c      int
+	i      int
+	i0     int
+	sc     int
+	src    []byte
+	ssc    int // saved state condition
+	val    []byte
+}
+
+// New returns a newly created Scanner with fname as the name of the source.
+func New(fname string, src []byte) (s *Scanner) {
+	if len(src) > 2 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF {
+		src = src[3:]
+	}
+	s = &Scanner{
+		src:   src,
+		NLine: 1,
+		NCol:  0,
+		Fname: fname,
+	}
+	s.next()
+	return
+}
+
+func (s *Scanner) next() int {
+	if s.c != 0 {
+		s.val = append(s.val, byte(s.c))
+	}
+	s.c = 0
+	if s.i < len(s.src) {
+		s.c = int(s.src[s.i])
+		s.i++
+		switch s.c {
+		case '\n':
+			s.NLine++
+			s.NCol = 0
+			if s.i == len(s.src) {
+				s.NCol = 1
+			}
+		default:
+			s.NCol++
+		}
+	}
+	return s.c
+}
+
+// Pos returns the starting offset of the last scanned token.
+func (s *Scanner) Pos() int {
+	return s.i0
+}
+
+func (s *Scanner) err(format string, arg ...interface{}) {
+	err := fmt.Errorf(fmt.Sprintf("%s:%d:%d ", s.Fname, s.Line, s.Col)+format, arg...)
+	s.Errors = append(s.Errors, err)
+}
+
+// Error implements yyLexer.
+func (s *Scanner) Error(msg string) {
+	switch msg {
+	case "syntax error":
+		s.err(msg)
+	default:
+		s.Errors = append(s.Errors, errors.New(msg))
+	}
+}
+
+const (
+	runeError = math.MaxInt32
 
 	t1 = 0x00 // 0000 0000
 	tx = 0x80 // 1000 0000
@@ -628,7 +689,7 @@ const (
 func decodeRune(s []byte) (r rune, size int) {
 	n := len(s)
 	if n < 1 {
-		return RuneError, 0
+		return runeError, 0
 	}
 	c0 := s[0]
 
@@ -639,65 +700,65 @@ func decodeRune(s []byte) (r rune, size int) {
 
 	// unexpected continuation byte?
 	if c0 < t2 {
-		return RuneError, 1
+		return runeError, 1
 	}
 
 	// need first continuation byte
 	if n < 2 {
-		return RuneError, 1
+		return runeError, 1
 	}
 	c1 := s[1]
 	if c1 < tx || t2 <= c1 {
-		return RuneError, 1
+		return runeError, 1
 	}
 
 	// 2-byte, 11-bit sequence?
 	if c0 < t3 {
 		r = rune(c0&mask2)<<6 | rune(c1&maskx)
 		if r <= rune1Max {
-			return RuneError, 1
+			return runeError, 1
 		}
 		return r, 2
 	}
 
 	// need second continuation byte
 	if n < 3 {
-		return RuneError, 1
+		return runeError, 1
 	}
 	c2 := s[2]
 	if c2 < tx || t2 <= c2 {
-		return RuneError, 1
+		return runeError, 1
 	}
 
 	// 3-byte, 16-bit sequence?
 	if c0 < t4 {
 		r = rune(c0&mask3)<<12 | rune(c1&maskx)<<6 | rune(c2&maskx)
 		if r <= rune2Max {
-			return RuneError, 1
+			return runeError, 1
 		}
 		return r, 3
 	}
 
 	// need third continuation byte
 	if n < 4 {
-		return RuneError, 1
+		return runeError, 1
 	}
 	c3 := s[3]
 	if c3 < tx || t2 <= c3 {
-		return RuneError, 1
+		return runeError, 1
 	}
 
 	// 4-byte, 21-bit sequence?
 	if c0 < t5 {
 		r = rune(c0&mask4)<<18 | rune(c1&maskx)<<12 | rune(c2&maskx)<<6 | rune(c3&maskx)
 		if r <= rune3Max || unicode.MaxRune < r {
-			return RuneError, 1
+			return runeError, 1
 		}
 		return r, 4
 	}
 
 	// error
-	return RuneError, 1
+	return runeError, 1
 }
 
 var tab = []rune{
@@ -722,21 +783,4 @@ var tab = []rune{
 	0x00B7, 0x00B7, // 18
 	0x0300, 0x036F, // 19
 	0x203F, 0x2040, // 20, last PN_CHARS
-}
-
-func check(r rune, tab []rune) bool {
-	for i := 0; i < len(tab); i += 2 {
-		if r >= tab[i] && r <= tab[i+1] {
-			return true
-		}
-	}
-	return false
-}
-
-func checkPnCharsU(r rune) bool {
-	return check(r, tab[:2*16])
-}
-
-func checkPnChars(r rune) bool {
-	return check(r, tab)
 }

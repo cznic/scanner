@@ -67,12 +67,12 @@ func TestScanner(t *testing.T) {
 		{"_:0", true, LABEL, "0"},
 		{" _:0", true, LABEL, "0"},
 		{"\t_:0\t", true, LABEL, "0"},
-		{"\n_:0\n", true, LABEL, "0"},
-		{"\n\t_:0\t\n", true, LABEL, "0"},
+		{"\n_:0\n", true, EOL, ""},
+		{"\n\t_:0\t\n", true, EOL, ""},
 	}
 
 	for i, test := range tab {
-		sc := New([]byte(test.src))
+		sc := New("test", []byte(test.src))
 		tok, val := sc.Scan()
 		errs := sc.Errors
 		switch test.ok {
@@ -114,7 +114,7 @@ func encodeRune(r rune) string {
 func TestLabel(t *testing.T) {
 	for c := rune(0); c <= unicode.MaxRune; c++ {
 		s := "_:" + encodeRune(c)
-		sc := New([]byte(s))
+		sc := New("test", []byte(s))
 		tok, val := sc.Scan()
 		switch {
 		case c >= '0' && c <= '9', checkPnCharsU(c):
@@ -133,7 +133,7 @@ func TestLabel(t *testing.T) {
 
 	for c := rune(1); c <= unicode.MaxRune; c++ {
 		s := "_:0" + encodeRune(c)
-		sc := New([]byte(s))
+		sc := New("test", []byte(s))
 		tok, val := sc.Scan()
 		switch {
 		case checkPnChars(c):
@@ -159,7 +159,7 @@ func TestLabel(t *testing.T) {
 
 	for c := rune(1); c <= unicode.MaxRune; c++ {
 		s := "_:0a" + encodeRune(c)
-		sc := New([]byte(s))
+		sc := New("test", []byte(s))
 		tok, val := sc.Scan()
 		switch {
 		case checkPnChars(c):
@@ -185,7 +185,7 @@ func TestLabel(t *testing.T) {
 
 	for c := rune(1); c <= unicode.MaxRune; c++ {
 		s := "_:0." + encodeRune(c)
-		sc := New([]byte(s))
+		sc := New("test", []byte(s))
 		tok, val := sc.Scan()
 		switch {
 		case checkPnChars(c):
@@ -201,4 +201,51 @@ func TestLabel(t *testing.T) {
 			}
 		}
 	}
+}
+
+func ExampleScanner_Scan() {
+	const src = `
+
+<http://one.example/subject1> <http://one.example/predicate1> <http://one.example/object1> @us-EN <http://example.org/graph3> . # comments here
+# or on a line by themselves
+_:subject1 <http://an.example/predicate1> "object1" "cafe\u0301 time" <http://example.org/graph1> .
+_:subject2 <http://an.example/predicate2> "object2"  ^^ <http://example.com/literal> <http://example.org/graph5> .
+
+`
+	sc := New("test", []byte(src))
+	for {
+		tok, val := sc.Scan()
+		fmt.Printf("%s:%d:%d %v %q\n", sc.Fname, sc.Line, sc.Col, tok, val)
+		if tok == EOF {
+			break
+		}
+	}
+	fmt.Printf("%v", sc.Errors)
+	// Output:
+	// test:2:0 EOL ""
+	// test:3:1 IRIREF "<http://one.example/subject1>"
+	// test:3:31 IRIREF "<http://one.example/predicate1>"
+	// test:3:63 IRIREF "<http://one.example/object1>"
+	// test:3:92 LANGTAG "@us-EN"
+	// test:3:99 IRIREF "<http://example.org/graph3>"
+	// test:3:127 DOT "."
+	// test:4:0 EOL ""
+	// test:5:0 EOL ""
+	// test:5:1 LABEL "subject1"
+	// test:5:12 IRIREF "<http://an.example/predicate1>"
+	// test:5:43 STRING "object1"
+	// test:5:53 STRING "café time"
+	// test:5:71 IRIREF "<http://example.org/graph1>"
+	// test:5:99 DOT "."
+	// test:6:0 EOL ""
+	// test:6:1 LABEL "subject2"
+	// test:6:12 IRIREF "<http://an.example/predicate2>"
+	// test:6:43 STRING "object2"
+	// test:6:54 DACCENT "^^"
+	// test:6:57 IRIREF "<http://example.com/literal>"
+	// test:6:86 IRIREF "<http://example.org/graph5>"
+	// test:6:114 DOT "."
+	// test:7:0 EOL ""
+	// test:8:1 EOF ""
+	// []
 }
