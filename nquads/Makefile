@@ -1,10 +1,15 @@
-.PHONY: all clean editor todo
+.PHONY: all clean editor todo cover nuke
+
+grep=--include=*.go *.l
 
 all: editor
 	go vet || true
 	golint . || true
 	go install
 	make todo
+
+cover:
+	t=$(shell tempfile) ; go test -coverprofile $$t && go tool cover -html $$t && unlink $$t
 
 editor: scanner.go
 	go fmt
@@ -16,10 +21,13 @@ scanner.go: scanner.l
 	golex -o $@ $<
 
 todo:
-	@grep -n ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* *.go *.l || true
-	@grep -n TODO *.go *.l || true
-	@grep -n BUG *.go *.l || true
-	@grep -n println *.go *.l || true
+	@grep -n ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* $(grep) || true
+	@grep -n TODO $(grep) || true
+	@grep -n BUG $(grep) || true
+	@grep -n println $(grep) || true
 
 clean:
-	@go clean
+	go clean
+
+nuke: clean
+	go clean -i
