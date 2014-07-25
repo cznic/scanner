@@ -482,7 +482,7 @@ yyrule8: // {iriref}
 yyrule9: // {langtag}
 	{
 
-		return LANGTAG, string(s.val)
+		return LANGTAG, string(s.val[1:])
 	}
 yyrule10: // {string_literal_quote}
 	{

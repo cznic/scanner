@@ -277,7 +277,7 @@ _:subject2 <http://an.example/predicate2> "object\U000000422"  ^^ <http://exampl
 	// test:3:1 IRIREF "http://one.example/subject1"
 	// test:3:31 IRIREF "http://one.example/predicate1"
 	// test:3:63 IRIREF "http://one.example/object1"
-	// test:3:92 LANGTAG "@us-EN"
+	// test:3:92 LANGTAG "us-EN"
 	// test:3:99 IRIREF "http://example.org/graph3"
 	// test:3:127 DOT "."
 	// test:4:0 EOL ""

@@ -100,7 +100,7 @@ n                       [\x80-\xBF]
 	return IRIREF, val[1:len(val)-1]
 
 {langtag}
-	return LANGTAG, string(s.val)
+	return LANGTAG, string(s.val[1:])
 
 {string_literal_quote}
 	// \' needs special preprocessing.
