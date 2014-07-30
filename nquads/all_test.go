@@ -5,6 +5,7 @@
 package scanner
 
 import (
+	"encoding/hex"
 	"fmt"
 	"path"
 	"runtime"
@@ -39,6 +40,8 @@ func TODO(...interface{}) string {
 }
 
 func use(...interface{}) {}
+
+func hd(b []byte) string { return hex.Dump(b) }
 
 // ============================================================================
 
@@ -85,21 +88,24 @@ func TestScanner1(t *testing.T) {
 		{"<http://one.example/subjec\\t1>", true, ILLEGAL, "<"},
 
 		// 25
-		{" \xef\xbb\xbf_:0", true, ILLEGAL, "ï"}, // BOM not first
-		{"\xef\xbb\xbf_:0", true, LABEL, "0"},    // BOM first
+		{" \xef\xbb\xbf_:0", true, ILLEGAL, "\ufeff"}, // BOM not first
+		{"\xef\xbb\xbf_:0", true, LABEL, "0"},         // BOM first
 		{"_:0.x", true, LABEL, "0.x"},
 		{"_:0x. ", true, LABEL, "0x"},
 		{"_:0x.", true, LABEL, "0x"},
 
 		// 30
 		{"_:.x", true, ILLEGAL, "_"},
-		{"_:0\u0080", false, ILLEGAL, "0"},
+		{"_:0\u0080", true, LABEL, "0"},
 		{"_:0.", true, LABEL, "0"},
 		{"_:0.1", true, LABEL, "0.1"},
 		{"_:0.1.", true, LABEL, "0.1"},
 
 		// 35
 		{"_:0.1..", true, LABEL, "0.1"},
+		{"", true, EOF, ""},
+		{"\"\x00\"", true, STRING, "\x00"},
+		{`"\u0000"`, true, STRING, "\x00"},
 	}
 
 	for i, test := range tab {
@@ -109,20 +115,20 @@ func TestScanner1(t *testing.T) {
 		switch test.ok {
 		case true:
 			if len(errs) != 0 {
-				t.Error("errs", i, errs)
+				t.Errorf("%d: errs %v", i, errs)
 				break
 			}
 
 			if g, e := tok, test.tok; g != e {
-				t.Error("tok", i, g, e)
+				t.Errorf("%d: tok %v %v", i, g, e)
 			}
 
 			if g, e := val, test.val; g != e {
-				t.Errorf("val %v %q %q", i, g, e)
+				t.Errorf("%d: val %q %q", i, g, e)
 			}
 		default:
 			if len(errs) == 0 {
-				t.Error("errs", i, tok, val)
+				t.Errorf("%d: errs %v %v", i, tok, val)
 				break
 			}
 		}
@@ -137,21 +143,53 @@ func TestScanner2(t *testing.T) {
 	}{
 		// 0
 		{"_:0.x _:1.y", []Token{LABEL, LABEL, EOF}, []string{"0.x", "1.y", ""}},
+		{`_:0.x _:1.y
+`, []Token{LABEL, LABEL, EOL, EOF}, []string{"0.x", "1.y", "", ""}},
 		{"_:0.x .", []Token{LABEL, DOT, EOF}, []string{"0.x", ".", ""}},
+		{`_:0.x .
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0.x", ".", "", ""}},
 		{"_:0.x .", []Token{LABEL, DOT, EOF}, []string{"0.x", ".", ""}},
-		{"_:0.", []Token{LABEL, DOT, EOF}, []string{"0", ".", ""}},
-		{"_:0\u0080.", []Token{ILLEGAL, EOF}, []string{"", ""}},
 
 		// 5
+		{"_:0.", []Token{LABEL, DOT, EOF}, []string{"0", ".", ""}},
+		{`_:0.x .
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0.x", ".", "", ""}},
+		{`_:0.x .
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0.x", ".", "", ""}},
+		{`_:0.
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0", ".", "", ""}},
+		{`_:0.
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0", ".", "", ""}},
+
+		// 10
+		{`_:0.
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0", ".", "", ""}},
+		{`_:0.
+`, []Token{LABEL, DOT, EOL, EOF}, []string{"0", ".", "", ""}},
+		{"_:0\u0080.", []Token{LABEL, ILLEGAL, DOT, EOF}, []string{"0", "\u0080", ".", ""}},
 		{"_:0.1", []Token{LABEL, EOF}, []string{"0.1", ""}},
 		{"_:0.1.", []Token{LABEL, DOT, EOF}, []string{"0.1", ".", ""}},
+
+		// 15
 		{"_:0.1.x", []Token{LABEL, EOF}, []string{"0.1.x", ""}},
 		{"_:0.1..", []Token{LABEL, DOT, DOT, EOF}, []string{"0.1", ".", ".", ""}},
 		{"_:0.1..x", []Token{LABEL, EOF}, []string{"0.1..x", ""}},
+		{`<http://example.org/property> _:anon.
+`,
+			[]Token{IRIREF, LABEL, DOT, EOL, EOF}, []string{"http://example.org/property", "anon", ".", "", ""}},
+		{"<http://a.example/s> <http://a.example/p> \"\x00	&([]\" .\n",
+			[]Token{IRIREF, IRIREF, STRING, DOT, EOL, EOF},
+			[]string{"http://a.example/s", "http://a.example/p", "\x00\t\v\f\x0e&([]\u007f", ".", "", ""}},
+
+		// 20
+		{`<http://example/s> <http://example/p> "abc' .`,
+			[]Token{IRIREF, IRIREF, ILLEGAL, EOF}, []string{"http://example/s", "http://example/p", "\"", ""}},
 	}
 
 	for i, test := range tab {
-		sc := New("test", []byte(test.src))
+		b := []byte(test.src)
+		//dbg("%d:\n%s", i, hd(b))
+		sc := New("test", b)
 		for j, tok := range test.toks {
 			val := test.vals[j]
 			gt, gv := sc.Scan()
@@ -211,10 +249,6 @@ func TestLabel(t *testing.T) {
 			if g, e := val, s[2:]; g != e {
 				t.Fatalf("val: %q(%U) %v %v", c, c, g, e)
 			}
-		case c >= 0x80:
-			if g, e := tok, ILLEGAL; g != e {
-				t.Fatalf("should fail %q |% x|: %q(%U) %v %v", s, s, c, c, g, e)
-			}
 		default:
 			if g, e := tok, LABEL; g != e {
 				t.Fatalf("should fail %q |% x|: %q(%U) %v %v", s, s, c, c, g, e)
@@ -238,10 +272,6 @@ func TestLabel(t *testing.T) {
 			if g, e := val, s[2:]; g != e {
 				t.Fatalf("val: %q(%U) %v %v", c, c, g, e)
 			}
-		case c >= 0x80:
-			if g, e := tok, ILLEGAL; g != e {
-				t.Fatalf("should fail %q |% x|: %q(%U) %v %v", s, s, c, c, g, e)
-			}
 		default:
 			if g, e := tok, LABEL; g != e {
 				t.Fatalf("should fail %q |% x|: %q(%U) %v %v", s, s, c, c, g, e)
@@ -261,6 +291,8 @@ func ExampleScanner_Scan() {
 # or on a line by themselves
 _:subject1 <http://an.example/predicate1> "object\u00411" "cafe\u0301 \'time" <http://example.org/graph1> .
 _:subject2 <http://an.example/predicate2> "object\U000000422"  ^^ <http://example.com/literal> <http://example.org/graph5> .
+_:0 _:01
+ _:0 _:01
 
 `
 	sc := New("test", []byte(src))
@@ -297,6 +329,12 @@ _:subject2 <http://an.example/predicate2> "object\U000000422"  ^^ <http://exampl
 	// test:6:96 IRIREF "http://example.org/graph5"
 	// test:6:124 DOT "."
 	// test:7:0 EOL ""
-	// test:8:1 EOF ""
+	// test:7:1 LABEL "0"
+	// test:7:5 LABEL "01"
+	// test:8:0 EOL ""
+	// test:8:2 LABEL "0"
+	// test:8:6 LABEL "01"
+	// test:9:0 EOL ""
+	// test:10:1 EOF ""
 	// []
 }

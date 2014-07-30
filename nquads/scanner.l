@@ -17,8 +17,8 @@ import (
 // If the returned token is ILLEGAL, the literal string is the offending
 // character or number/string/char literal.
 func (s *Scanner) Scan() (tok Token, st string) {
-	//defer func() { dbg("%s:%d:%d %v %q :%d:%d", s.Fname, s.Line, s.Col, tok, st, s.NLine, s.NCol) }()
-	c0, c := s.c, s.c
+	//defer func() { dbg("%s:%d:%d %v %q :%d:%d s.i %d: %#x", s.Fname, s.Line, s.Col, tok, st, s.NLine, s.NCol, s.i, s.c) }()
+	c := s.c
 %}
 
 
@@ -28,8 +28,8 @@ func (s *Scanner) Scan() (tok Token, st string) {
 langtag	                @[a-zA-Z]+(-[a-zA-Z0-9]+)*
 eol	                [\x0D\x0A]+
 iriref	                <([^\x01-\x20<>"{}|^`\\]|{uchar})*>
-string_literal_quote    \"([^\x22\x5C\x0A\x0D]|{echar}|{uchar})*\"
-blank_node_label        _:({pn_chars_u}|[0-9])({pn_chars}|\.)*
+string_literal_quote    \"([^\x22\x5C\x0A\x0D]|{echar}|\0|{uchar})*\"
+blank_node_label        _:
 uchar                   \\u{hex}{hex}{hex}{hex}|\\U{hex}{hex}{hex}{hex}{hex}{hex}{hex}{hex}
 echar                   \\[tbnrf"'\\]
 pn_chars_base           [A-Z]|[a-z]|{na}
@@ -41,11 +41,17 @@ n                       [\x80-\xBF]
 
 %%
 	s.val = s.val[:0]
-	s.i0, s.Line, s.Col, c0 = s.i, s.NLine, s.NCol, c
+	s.i0, s.Line, s.Col = s.i, s.NLine, s.NCol
+	i := s.i
+	if i > 0 {
+		i--	
+	}
+	c0, n0 := decodeRune(s.src[i:])
+	if c < 0 {
+		s.i0++
+		return EOF, ""
+	}
 			
-\0	s.i0++
-	return EOF, ""
-
 [ \t]+
 #.*
 
@@ -54,41 +60,51 @@ n                       [\x80-\xBF]
 "^^"	return DACCENT, "^^"
 
 {blank_node_label}
-	i := 2
-	c, n := decodeRune(s.val[i:])
-	switch {
-	case c >= '0' && c <= '9', checkPnCharsU(c):
-		// ok
+	if s.c < 0 {
+		return ILLEGAL, string(c0)
+	}
+
+	var v []rune
+	s.i--
+	switch r, n := decodeRune(s.src[s.i:]); {
+	case checkPnCharsU(r), r >= '0' && r <= '9':
+		s.i += n
+		s.NCol += n
+		v = append(v, r)
 	default:
-		s.Col += i
-		s.err("invalid character %U in BLANK_NODE_LABEL", c)
-		return ILLEGAL, ""
+		s.next()
+		return ILLEGAL, string(c0)
 	}
 
-	for i := i+n; i < len(s.val); i += n {
-		c, n = decodeRune(s.val[i:])
-		switch {
-		case c == '.', checkPnChars(c):
-			// ok
+ loop:
+	for {
+		switch r, n := decodeRune(s.src[s.i:]); {
+		case checkPnChars(r), r == '.':
+			s.i += n
+			s.NCol += n
+			v = append(v, r)
 		default:
-			s.Col += i
-			s.err("invalid character %U in BLANK_NODE_LABEL", c)
-			return ILLEGAL, ""
-		}
-	}
-
-	if c == '.' || !checkPnChars(c) {
-		for {
-			s.val = s.val[:len(s.val)-1]
-			s.back()
-			if s.val[len(s.val)-1] != '.' {
-				s.i++
-				break
+			if v[len(v)-1] != '.' {
+				s.next()
+				break loop
 			}
+
+			for v[len(v)-1] == '.' {
+				v = v[:len(v)-1]
+				s.i--
+				s.NCol--
+			}
+
+			s.next()
+			break loop
 		}
 	}
-
-	return LABEL, string(s.val[2:])	
+	
+	
+	if s.NCol > 0 {
+		s.NCol--
+	}
+	return LABEL, string(v)
 
 {eol}	return EOL, ""
 
@@ -118,6 +134,8 @@ n                       [\x80-\xBF]
 	return STRING, val
 
 %%
+	//dbg("yyabort s.i %d, c0 %q(%#x), n0 %d", s.i, c0, c0, n0)
+	s.i += n0-1
 	s.next()
 	return ILLEGAL, string(c0)
 

@@ -16,13 +16,22 @@ import (
 // If the returned token is ILLEGAL, the literal string is the offending
 // character or number/string/char literal.
 func (s *Scanner) Scan() (tok Token, st string) {
-	//defer func() { dbg("%s:%d:%d %v %q :%d:%d", s.Fname, s.Line, s.Col, tok, st, s.NLine, s.NCol) }()
-	c0, c := s.c, s.c
+	//defer func() { dbg("%s:%d:%d %v %q :%d:%d s.i %d: %#x", s.Fname, s.Line, s.Col, tok, st, s.NLine, s.NCol, s.i, s.c) }()
+	c := s.c
 
 yystate0:
 
 	s.val = s.val[:0]
-	s.i0, s.Line, s.Col, c0 = s.i, s.NLine, s.NCol, c
+	s.i0, s.Line, s.Col = s.i, s.NLine, s.NCol
+	i := s.i
+	if i > 0 {
+		i--
+	}
+	c0, n0 := decodeRune(s.src[i:])
+	if c < 0 {
+		s.i0++
+		return EOF, ""
+	}
 
 	goto yystart1
 
@@ -34,37 +43,40 @@ yystart1:
 	default:
 		goto yyabort
 	case c == '"':
-		goto yystate5
-	case c == '#':
-		goto yystate16
-	case c == '.':
-		goto yystate17
-	case c == '<':
-		goto yystate18
-	case c == '@':
-		goto yystate29
-	case c == '\n' || c == '\r':
 		goto yystate4
-	case c == '\t' || c == ' ':
+	case c == '#':
+		goto yystate15
+	case c == '.':
+		goto yystate16
+	case c == '<':
+		goto yystate17
+	case c == '@':
+		goto yystate28
+	case c == '\n' || c == '\r':
 		goto yystate3
-	case c == '\x00':
+	case c == '\t' || c == ' ':
 		goto yystate2
 	case c == '^':
-		goto yystate33
+		goto yystate32
 	case c == '_':
-		goto yystate35
+		goto yystate34
 	}
 
 yystate2:
 	c = s.next()
-	goto yyrule1
+	switch {
+	default:
+		goto yyrule1
+	case c == '\t' || c == ' ':
+		goto yystate2
+	}
 
 yystate3:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule2
-	case c == '\t' || c == ' ':
+		goto yyrule6
+	case c == '\n' || c == '\r':
 		goto yystate3
 	}
 
@@ -72,39 +84,39 @@ yystate4:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule7
-	case c == '\n' || c == '\r':
+		goto yyabort
+	case c == '"':
+		goto yystate5
+	case c == '\\':
+		goto yystate6
+	case c >= '\x00' && c <= '\t' || c == '\v' || c == '\f' || c >= '\x0e' && c <= '!' || c >= '#' && c <= '[' || c >= ']' && c <= 'ÿ':
 		goto yystate4
 	}
 
 yystate5:
 	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c == '"':
-		goto yystate6
-	case c == '\\':
-		goto yystate7
-	case c >= '\x01' && c <= '\t' || c == '\v' || c == '\f' || c >= '\x0e' && c <= '!' || c >= '#' && c <= '[' || c >= ']' && c <= 'ÿ':
-		goto yystate5
-	}
+	goto yyrule9
 
 yystate6:
 	c = s.next()
-	goto yyrule10
+	switch {
+	default:
+		goto yyabort
+	case c == '"' || c == '\'' || c == '\\' || c == 'b' || c == 'f' || c == 'n' || c == 'r' || c == 't':
+		goto yystate4
+	case c == 'U':
+		goto yystate7
+	case c == 'u':
+		goto yystate11
+	}
 
 yystate7:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
-	case c == '"' || c == '\'' || c == '\\' || c == 'b' || c == 'f' || c == 'n' || c == 'r' || c == 't':
-		goto yystate5
-	case c == 'U':
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
 		goto yystate8
-	case c == 'u':
-		goto yystate12
 	}
 
 yystate8:
@@ -167,57 +179,57 @@ yystate14:
 	default:
 		goto yyabort
 	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
-		goto yystate15
+		goto yystate4
 	}
 
 yystate15:
 	c = s.next()
 	switch {
 	default:
-		goto yyabort
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
-		goto yystate5
+		goto yyrule2
+	case c >= '\x01' && c <= '\t' || c >= '\v' && c <= 'ÿ':
+		goto yystate15
 	}
 
 yystate16:
 	c = s.next()
-	switch {
-	default:
-		goto yyrule3
-	case c >= '\x01' && c <= '\t' || c >= '\v' && c <= 'ÿ':
-		goto yystate16
-	}
+	goto yyrule3
 
 yystate17:
-	c = s.next()
-	goto yyrule4
-
-yystate18:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
 	case c == '!' || c >= '#' && c <= ';' || c == '=' || c >= '?' && c <= '[' || c == ']' || c == '_' || c >= 'a' && c <= 'z' || c >= '~' && c <= 'ÿ':
-		goto yystate18
+		goto yystate17
 	case c == '>':
-		goto yystate19
+		goto yystate18
 	case c == '\\':
-		goto yystate20
+		goto yystate19
 	}
+
+yystate18:
+	c = s.next()
+	goto yyrule7
 
 yystate19:
 	c = s.next()
-	goto yyrule8
+	switch {
+	default:
+		goto yyabort
+	case c == 'U':
+		goto yystate20
+	case c == 'u':
+		goto yystate24
+	}
 
 yystate20:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
-	case c == 'U':
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
 		goto yystate21
-	case c == 'u':
-		goto yystate25
 	}
 
 yystate21:
@@ -280,7 +292,7 @@ yystate27:
 	default:
 		goto yyabort
 	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
-		goto yystate28
+		goto yystate17
 	}
 
 yystate28:
@@ -288,189 +300,130 @@ yystate28:
 	switch {
 	default:
 		goto yyabort
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f':
-		goto yystate18
+	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+		goto yystate29
 	}
 
 yystate29:
 	c = s.next()
 	switch {
 	default:
-		goto yyabort
-	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+		goto yyrule8
+	case c == '-':
 		goto yystate30
+	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+		goto yystate29
 	}
 
 yystate30:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule9
-	case c == '-':
+		goto yyabort
+	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
 		goto yystate31
-	case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
-		goto yystate30
 	}
 
 yystate31:
 	c = s.next()
 	switch {
 	default:
-		goto yyabort
+		goto yyrule8
+	case c == '-':
+		goto yystate30
 	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
-		goto yystate32
+		goto yystate31
 	}
 
 yystate32:
 	c = s.next()
 	switch {
 	default:
-		goto yyrule9
-	case c == '-':
-		goto yystate31
-	case c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
-		goto yystate32
+		goto yyabort
+	case c == '^':
+		goto yystate33
 	}
 
 yystate33:
 	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c == '^':
-		goto yystate34
-	}
+	goto yyrule4
 
 yystate34:
-	c = s.next()
-	goto yyrule5
-
-yystate35:
 	c = s.next()
 	switch {
 	default:
 		goto yyabort
 	case c == ':':
-		goto yystate36
+		goto yystate35
 	}
 
-yystate36:
+yystate35:
 	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
-		goto yystate37
-	case c >= 'Â' && c <= 'ß':
-		goto yystate38
-	case c >= 'à' && c <= 'ï':
-		goto yystate39
-	case c >= 'ð' && c <= 'ô':
-		goto yystate40
-	}
+	goto yyrule5
 
-yystate37:
-	c = s.next()
-	switch {
-	default:
-		goto yyrule6
-	case c == '-' || c == '.' || c >= '0' && c <= ':' || c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z':
-		goto yystate37
-	case c >= 'Â' && c <= 'ß':
-		goto yystate38
-	case c >= 'à' && c <= 'ï':
-		goto yystate39
-	case c >= 'ð' && c <= 'ô':
-		goto yystate40
-	}
-
-yystate38:
-	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c >= '\u0080' && c <= '¿':
-		goto yystate37
-	}
-
-yystate39:
-	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c >= '\u0080' && c <= '¿':
-		goto yystate38
-	}
-
-yystate40:
-	c = s.next()
-	switch {
-	default:
-		goto yyabort
-	case c >= '\u0080' && c <= '¿':
-		goto yystate39
-	}
-
-yyrule1: // \0
-	{
-		s.i0++
-		return EOF, ""
-	}
-yyrule2: // [ \t]+
+yyrule1: // [ \t]+
 
 	goto yystate0
-yyrule3: // #.*
+yyrule2: // #.*
 
 	goto yystate0
-yyrule4: // \.
+yyrule3: // \.
 	{
 		return DOT, "."
 	}
-yyrule5: // "^^"
+yyrule4: // "^^"
 	{
 		return DACCENT, "^^"
 	}
-yyrule6: // {blank_node_label}
+yyrule5: // {blank_node_label}
 	{
 
-		i := 2
-		c, n := decodeRune(s.val[i:])
-		switch {
-		case c >= '0' && c <= '9', checkPnCharsU(c):
-			// ok
+		if s.c < 0 {
+			return ILLEGAL, string(c0)
+		}
+		var v []rune
+		s.i--
+		switch r, n := decodeRune(s.src[s.i:]); {
+		case checkPnCharsU(r), r >= '0' && r <= '9':
+			s.i += n
+			s.NCol += n
+			v = append(v, r)
 		default:
-			s.Col += i
-			s.err("invalid character %U in BLANK_NODE_LABEL", c)
-			return ILLEGAL, ""
+			s.next()
+			return ILLEGAL, string(c0)
 		}
-		for i := i + n; i < len(s.val); i += n {
-			c, n = decodeRune(s.val[i:])
-			switch {
-			case c == '.', checkPnChars(c):
-				// ok
+	loop:
+		for {
+			switch r, n := decodeRune(s.src[s.i:]); {
+			case checkPnChars(r), r == '.':
+				s.i += n
+				s.NCol += n
+				v = append(v, r)
 			default:
-				s.Col += i
-				s.err("invalid character %U in BLANK_NODE_LABEL", c)
-				return ILLEGAL, ""
-			}
-		}
-		if c == '.' || !checkPnChars(c) {
-			for {
-				s.val = s.val[:len(s.val)-1]
-				s.back()
-				if s.val[len(s.val)-1] != '.' {
-					s.i++
-					break
+				if v[len(v)-1] != '.' {
+					s.next()
+					break loop
 				}
+				for v[len(v)-1] == '.' {
+					v = v[:len(v)-1]
+					s.i--
+					s.NCol--
+				}
+				s.next()
+				break loop
 			}
 		}
-		return LABEL, string(s.val[2:])
+
+		if s.NCol > 0 {
+			s.NCol--
+		}
+		return LABEL, string(v)
 	}
-yyrule7: // {eol}
+yyrule6: // {eol}
 	{
 		return EOL, ""
 	}
-yyrule8: // {iriref}
+yyrule7: // {iriref}
 	{
 
 		val, err := strconv.Unquote(`"` + string(s.val) + `"`)
@@ -479,12 +432,12 @@ yyrule8: // {iriref}
 		}
 		return IRIREF, val[1 : len(val)-1]
 	}
-yyrule9: // {langtag}
+yyrule8: // {langtag}
 	{
 
 		return LANGTAG, string(s.val[1:])
 	}
-yyrule10: // {string_literal_quote}
+yyrule9: // {string_literal_quote}
 	{
 
 		// \' needs special preprocessing.
@@ -506,6 +459,8 @@ yyrule10: // {string_literal_quote}
 	goto yyabort // silence unused label error
 
 yyabort: // no lexem recognized
+	//dbg("yyabort s.i %d, c0 %q(%#x), n0 %d", s.i, c0, c0, n0)
+	s.i += n0 - 1
 	s.next()
 	return ILLEGAL, string(c0)
 

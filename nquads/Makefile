@@ -19,6 +19,7 @@ editor: scanner.go
 
 scanner.go: scanner.l
 	golex -o $@ $<
+	go fmt $@
 
 todo:
 	@grep -n ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* $(grep) || true

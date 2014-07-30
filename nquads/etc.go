@@ -103,10 +103,10 @@ func (s *Scanner) back() {
 }
 
 func (s *Scanner) next() int {
-	if s.c != 0 {
+	if s.i <= len(s.src) && s.c >= 0 {
 		s.val = append(s.val, byte(s.c))
 	}
-	s.c = 0
+	s.c = -1
 	if s.i < len(s.src) {
 		s.c = int(s.src[s.i])
 		s.i++
@@ -170,7 +170,7 @@ const (
 func decodeRune(s []byte) (r rune, size int) {
 	n := len(s)
 	if n < 1 {
-		return runeError, 0
+		return 0, 0
 	}
 	c0 := s[0]
 
