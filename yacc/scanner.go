@@ -35,12 +35,12 @@ const (
 )
 
 const (
-	_ = 0xE000 + iota
+	_ Token = 0xE000 + iota
 
 	// ------------------------------------------- Go mode or shared tokens
 
 	// Special tokens
-	ILLEGAL Token = iota
+	ILLEGAL
 	EOF
 	COMMENT
 
@@ -299,7 +299,7 @@ func (i Token) String() string {
 type Scanner struct {
 	Col    int     // Starting column of the last scanned token.
 	Errors []error // List of accumulated errors.
-	Fname  string  // File name (reported) of the scanned source.
+	FName  string  // File name (reported) of the scanned source.
 	Line   int     // Starting line of the last scanned token.
 	NCol   int     // Starting column (reported) for the next scanned token.
 	NLine  int     // Starting line (reported) for the next scanned token.
@@ -312,12 +312,13 @@ type Scanner struct {
 	val    []byte
 }
 
-// New returns a newly created Scanner.
-func New(src []byte) (s *Scanner) {
+// New returns a newly created Scanner and set its FName to fname
+func New(fname string, src []byte) (s *Scanner) {
 	if len(src) > 2 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF {
 		src = src[3:]
 	}
 	s = &Scanner{
+		FName: fname,
 		src:   src,
 		NLine: 1,
 		NCol:  0,
@@ -351,7 +352,7 @@ func (s *Scanner) Pos() int {
 }
 
 func (s *Scanner) err(format string, arg ...interface{}) {
-	err := fmt.Errorf(fmt.Sprintf("%s:%d:%d ", s.Fname, s.Line, s.Col)+format, arg...)
+	err := fmt.Errorf(fmt.Sprintf("%s:%d:%d ", s.FName, s.Line, s.Col)+format, arg...)
 	s.Errors = append(s.Errors, err)
 }
 
@@ -3463,7 +3464,7 @@ yyrule89: // '(\\.)?[^']*'
 			return
 		}
 		s.i0++
-		return CHAR, int32(lval.(string)[0]), 0
+		return CHAR, []rune(lval.(string))[0], 0
 	}
 yyrule90: // (\\.|[^\\"])*\"
 	{

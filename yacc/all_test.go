@@ -5,10 +5,12 @@
 package scanner
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 	"runtime"
 	"testing"
+	"unicode"
 )
 
 func dbg(s string, va ...interface{}) {
@@ -27,7 +29,7 @@ type row struct {
 
 func testTokens(t *testing.T, yacc bool, table []row) {
 	for i, test := range table {
-		s := New([]byte(test.src))
+		s := New("testTokens", []byte(test.src))
 		s.Mode(yacc)
 		tok, lit, num := s.Scan()
 		if g, e, g2, e2, g3, e3 := tok, test.tok, lit, test.lit, num, test.num; g != e || g2 != e2 || g3 != e3 {
@@ -231,6 +233,9 @@ func TestGoTokens(t *testing.T) {
 		{"$<a_b>-1", DLR_TAG_NUM, "a_b", -1},
 		{"$<a.b>0", DLR_TAG_NUM, "a.b", 0},
 		{"$<abc>1", DLR_TAG_NUM, "abc", 1},
+
+		{`'\u0061'`, CHAR, 'a', 0},     // 160
+		{`'\U00000061'`, CHAR, 'a', 0}, // 160
 	})
 }
 
@@ -492,7 +497,7 @@ func TestBug(t *testing.T) {
 	}
 
 	for i, test := range tab {
-		s := New([]byte(test.src))
+		s := New("TestBug", []byte(test.src))
 		s.Mode(true)
 		for j, etok := range test.toks {
 			tok, _, _ := s.Scan()
@@ -500,5 +505,43 @@ func TestBug(t *testing.T) {
 				t.Errorf("%d.%d: %s(%d) %s(%d)", i, j, g, g, e, e)
 			}
 		}
+	}
+}
+
+func TestChar(t *testing.T) {
+	var buf bytes.Buffer
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		if r >= 0xd800 && r <= 0xdfff {
+			continue
+		}
+
+		buf.WriteString(fmt.Sprintf("'\\U%08x'\n", r))
+	}
+	s := New("TestChar", buf.Bytes())
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		if r >= 0xd800 && r <= 0xdfff {
+			continue
+		}
+
+		tok, val, _ := s.Scan()
+		if len(s.Errors) != 0 {
+			t.Fatalf("%#x err: %v", r, s.Errors)
+		}
+
+		if g, e := tok, CHAR; g != e {
+			t.Fatalf("%#x tok: %v %v", r, g, e)
+		}
+
+		if g, e := val, r; g != e {
+			t.Fatalf("%#x val: %T(%v) %T(%v)", r, g, g, e, e)
+		}
+	}
+	tok, _, _ := s.Scan()
+	if len(s.Errors) != 0 {
+		t.Fatalf("err: %v", s.Errors)
+	}
+
+	if g, e := tok, EOF; g != e {
+		t.Fatalf("tok: %v %v", g, e)
 	}
 }
