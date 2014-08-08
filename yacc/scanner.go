@@ -385,14 +385,16 @@ func (s *Scanner) Scan() (tok Token, lval interface{}, num int) {
 		return
 	}
 
+	idLine, idCol := s.Line, s.Col
 	i, nl, nc, c := s.i, s.NLine, s.NCol, s.c
 	tok2, lit, _ := s.ScanRaw()
-	if tok2 != ILLEGAL || lit.(string) != ":" {
-		s.i, s.NLine, s.NCol, s.c = i, nl, nc, c
-		return
+	s.Line, s.Col = idLine, idCol
+	if tok2 == ILLEGAL && lit.(string) == ":" {
+		return C_IDENTIFIER, lval, 0
 	}
 
-	return C_IDENTIFIER, lval, 0
+	s.i, s.NLine, s.NCol, s.c = i, nl, nc, c
+	return
 }
 
 // ScanRaw scans the next token and returns the token and its value if
