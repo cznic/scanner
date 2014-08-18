@@ -1,5 +1,6 @@
-// Copyright (c) 2014 Go Authors. All rights reserved.  Use of this source code
-// is governed by a BSD-style license that can be found in the LICENSE file.
+// Copyright (c) 2014 The scanner Authors. All rights reserved.  Use of this
+// source code is governed by a BSD-style license that can be found in the
+// LICENSE file.
 //
 // CAUTION: If this file is a Go source file (*.go), it was generated
 // automatically by '$ golex' from a *.l file - DO NOT EDIT in that case!
