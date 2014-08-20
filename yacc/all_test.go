@@ -7,6 +7,7 @@ package scanner
 import (
 	"bytes"
 	"fmt"
+	"go/token"
 	"path"
 	"runtime"
 	"testing"
@@ -29,7 +30,7 @@ type row struct {
 
 func testTokens(t *testing.T, yacc bool, table []row) {
 	for i, test := range table {
-		s := New("testTokens", []byte(test.src))
+		s := New(token.NewFileSet(), "testTokens", []byte(test.src))
 		s.Mode(yacc)
 		tok, lit, num := s.Scan()
 		if g, e, g2, e2, g3, e3 := tok, test.tok, lit, test.lit, num, test.num; g != e || g2 != e2 || g3 != e3 {
@@ -497,7 +498,7 @@ func TestBug(t *testing.T) {
 	}
 
 	for i, test := range tab {
-		s := New("TestBug", []byte(test.src))
+		s := New(token.NewFileSet(), "TestBug", []byte(test.src))
 		s.Mode(true)
 		for j, etok := range test.toks {
 			tok, _, _ := s.Scan()
@@ -517,7 +518,7 @@ func TestChar(t *testing.T) {
 
 		buf.WriteString(fmt.Sprintf("'\\U%08x'\n", r))
 	}
-	s := New("TestChar", buf.Bytes())
+	s := New(token.NewFileSet(), "TestChar", buf.Bytes())
 	for r := rune(0); r <= unicode.MaxRune; r++ {
 		if r >= 0xd800 && r <= 0xdfff {
 			continue

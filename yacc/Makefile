@@ -7,8 +7,8 @@
 grep=--include=*.go --include=*.l
 
 all: editor
-	go vet || true
-	go install || true
+	go tool vet -printfuncs "Log:0,Logf:0" *.go || true
+	go install
 	make todo
 
 clean:

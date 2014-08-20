@@ -19,6 +19,7 @@ package scanner
 import (
 	"errors"
 	"fmt"
+	"go/token"
 	"strconv"
 	"strings"
 	"unicode"
@@ -304,6 +305,7 @@ type Scanner struct {
 	NCol   int     // Starting column (reported) for the next scanned token.
 	NLine  int     // Starting line (reported) for the next scanned token.
 	c      int
+	file   *token.File
 	i      int
 	i0     int
 	sc     int
@@ -313,7 +315,7 @@ type Scanner struct {
 }
 
 // New returns a newly created Scanner and set its FName to fname
-func New(fname string, src []byte) (s *Scanner) {
+func New(fset *token.FileSet, fname string, src []byte) (s *Scanner) {
 	if len(src) > 2 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF {
 		src = src[3:]
 	}
@@ -323,6 +325,7 @@ func New(fname string, src []byte) (s *Scanner) {
 		NLine: 1,
 		NCol:  0,
 	}
+	s.file = fset.AddFile(fname, -1, len(src))
 	s.next()
 	return
 }
@@ -340,6 +343,7 @@ func (s *Scanner) next() int {
 	case '\n':
 		s.NLine++
 		s.NCol = 0
+		s.file.AddLine(s.i)
 	default:
 		s.NCol++
 	}
@@ -387,7 +391,9 @@ func (s *Scanner) Scan() (tok Token, lval interface{}, num int) {
 
 	idLine, idCol := s.Line, s.Col
 	i, nl, nc, c := s.i, s.NLine, s.NCol, s.c
+	i0 := s.i0
 	tok2, lit, _ := s.ScanRaw()
+	s.i0 = i0
 	s.Line, s.Col = idLine, idCol
 	if tok2 == ILLEGAL && lit.(string) == ":" {
 		return C_IDENTIFIER, lval, 0
