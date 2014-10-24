@@ -377,7 +377,7 @@ func TestYaccTokens(t *testing.T) {
 		{"(", ILLEGAL, "(", 0}, // 110
 		{"[", ILLEGAL, "[", 0},
 		{"{", ILLEGAL, "{", 0},
-		{",", ILLEGAL, ",", 0},
+		{",", COMMA, nil, 0},
 		{".", ILLEGAL, ".", 0},
 
 		{")", ILLEGAL, ")", 0}, // 115

@@ -644,6 +644,7 @@ union		{u}{n}{i}{o}{n}
 %{token}		return TOKEN, lval, 0
 %{type}			return TYPE, lval, 0
 %{union}		return UNION, lval, 0
+,			return COMMA, lval, 0
 
 <_GO>[a-zA-Z_][a-zA-Z0-9_]*
 	if c >= '\xC2' && c <= '\xF4' {
