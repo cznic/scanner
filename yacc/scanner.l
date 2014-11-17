@@ -7,15 +7,20 @@
 // CAUTION: If this file is a Go source file (*.go), it was generated
 // automatically by '$ golex' from a *.l file - DO NOT EDIT in that case!
 
-// Package scanner implements a scanner for yacc[1] source text with actions
+// Package scanner implements a scanner for yacc[0] source text with actions
 // written in Go. It takes a []byte as source which can then be tokenized
 // through repeated calls to the Scan method.
+//
+// Changelog
+//
+// 2014-11-17: Allow dashes in symbol names for bison compatibility[1].
 //
 // Links
 // 
 // Referenced from above:
 // 
-// [1]: http://pubs.opengroup.org/onlinepubs/009695399/utilities/yacc.html
+// [0]: http://pubs.opengroup.org/onlinepubs/009695399/utilities/yacc.html
+// [1]: http://www.gnu.org/software/bison/manual/html_node/Symbols.html
 package scanner
 
 import (
@@ -152,7 +157,7 @@ const (
 	// yacc mode tokens
 	C_IDENTIFIER // IDENTIFIER ':'
 	ERR_VERBOSE  // %error-verbose
-	IDENTIFIER   // [a-zA-Z_][a-zA-Z0-9_.]*
+	IDENTIFIER   // [a-zA-Z_][a-zA-Z0-9_.-]*
 	LCURL        // %{
 	LEFT         // %left
 	MARK         // %%
@@ -659,7 +664,7 @@ union		{u}{n}{i}{o}{n}
 
 	return IDENT, string(s.val), 0
 
-<INITIAL>[a-zA-Z_][a-zA-Z0-9_.]*
+<INITIAL>[a-zA-Z_][a-zA-Z0-9_.-]*
 	if c >= '\xC2' && c <= '\xF4' {
 		s.i--
 		s.NCol--
