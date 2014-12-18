@@ -13,6 +13,8 @@
 //
 // Changelog
 //
+// 2014-12-18: Support %precedence for bison compatibility[1].
+//
 // 2014-11-17: Allow dashes in symbol names for bison compatibility[1].
 //
 // Links
@@ -169,6 +171,7 @@ const (
 	TOKEN        // %token
 	TYPE         // %type
 	UNION        // %union
+	PRECEDENCE   // %precedence
 )
 
 var ts = map[Token]string{
@@ -282,16 +285,17 @@ var ts = map[Token]string{
 	LEFT:         "LEFT",
 	MARK:         "MARK",
 
-	NONASSOC: "NONASSOC",
-	PREC:     "PREC",
-	RCURL:    "RCURL",
-	RIGHT:    "RIGHT",
+	NONASSOC:     "NONASSOC",
+	PREC:         "PREC",
+	PRECEDENCE:   "PRECEDENCE",
+	RCURL:        "RCURL",
+	RIGHT:        "RIGHT",
 
-	START:       "START",
-	TOKEN:       "TOKEN",
-	TYPE:        "TYPE",
-	UNION:       "UNION",
-	ERR_VERBOSE: "ERR_VERBOSE",
+	START:        "START",
+	TOKEN:        "TOKEN",
+	TYPE:         "TYPE",
+	UNION:        "UNION",
+	ERR_VERBOSE:  "ERR_VERBOSE",
 }
 
 // String implements fmt.Stringer
@@ -454,6 +458,7 @@ non_ascii       {utf8_2}|{utf8_3}|{utf8_4}
 a		[aA]
 b		[bB]
 c		[cC]
+d		[dD]
 e		[eE]
 f		[fF]
 g		[gG]
@@ -475,6 +480,7 @@ errorverbose	{e}{r}{r}{o}{r}-{v}{e}{r}{b}{o}{s}{e}
 left		{l}{e}{f}{t}
 nonassoc	{n}{o}{n}{a}{s}{s}{o}{c}
 prec		{p}{r}{e}{c}
+precedence      {p}{r}{e}{c}{e}{d}{e}{n}{c}{e}
 right		{r}{i}{g}{h}{t}
 start		{s}{t}{a}{r}{t}
 token		{t}{o}{k}{e}{n}
@@ -644,6 +650,7 @@ union		{u}{n}{i}{o}{n}
 %{left}			return LEFT, lval, 0
 %{nonassoc}		return NONASSOC, lval, 0
 %{prec}			return PREC, lval, 0
+%{precedence}		return PRECEDENCE, lval, 0
 %{right}		return RIGHT, lval, 0
 %{start}		return START, lval, 0
 %{token}		return TOKEN, lval, 0
