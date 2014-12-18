@@ -19,8 +19,8 @@
 //
 // Referenced from above:
 //
-// [0]: http://pubs.opengroup.org/onlinepubs/009695399/utilities/yacc.html
-// [1]: http://www.gnu.org/software/bison/manual/html_node/Symbols.html
+//  [0]: http://pubs.opengroup.org/onlinepubs/009695399/utilities/yacc.html
+//  [1]: http://www.gnu.org/software/bison/manual/html_node/Symbols.html
 package scanner
 
 import (
