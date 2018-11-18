@@ -1,7 +1,5 @@
-scanner
-=======
+`github.com/cznic/scanner` has moved to [`modernc.org/scanner`](https://godoc.org/modernc.org/scanner) ([vcs](https://gitlab.com/cznic/scanner)).
 
-Collection of Go tokenizers
+Please update your import paths to `modernc.org/scanner`.
 
-- [N-Quads](http://www.w3.org/TR/n-quads/): [http://godoc.org/github.com/cznic/scanner/nquads](http://godoc.org/github.com/cznic/scanner/nquads)
-- [yacc](http://pubs.opengroup.org/onlinepubs/009695399/utilities/yacc.html): [http://godoc.org/github.com/cznic/scanner/yacc](http://godoc.org/github.com/cznic/scanner/yacc)
+This repo is now archived.
